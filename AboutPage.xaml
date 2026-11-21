@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="青阳AI.AboutPage"
+             Title="关于应用">
+    <ScrollView>
+        <VerticalStackLayout Padding="24,30" Spacing="6">
+
+            <!-- 应用图标：AppIcon 的缩放版（Resources/Images/applogo.png，512×512）。
+                 原图是方形且无 alpha 通道，而 MAUI 的 Border 不会裁剪子元素，
+                 所以圆角必须靠 Image.Clip 实现 —— 只设 Border 的 StrokeShape 是没用的 -->
+            <Border WidthRequest="96" HeightRequest="96"
+                    StrokeThickness="0" StrokeShape="RoundRectangle 28"
+                    BackgroundColor="#2F2928" HorizontalOptions="Center">
+                <Image Source="applogo.png" Aspect="AspectFill"
+                       WidthRequest="96" HeightRequest="96">
+                    <Image.Clip>
+                        <RoundRectangleGeometry CornerRadius="28" Rect="0,0,96,96"/>
+                    </Image.Clip>
+                </Image>
+            </Border>
+
+            <Label Text="青阳AI" FontSize="22" FontAttributes="Bold"
+                   TextColor="White" HorizontalOptions="Center" Margin="0,10,0,0"/>
+            <!-- 版本号由代码动态填充（AppInfo），升版本自动跟上 -->
+            <Label x:Name="lblVersion" Text="" FontSize="13"
+                   TextColor="#9E8D8C" HorizontalOptions="Center"/>
+
+            <BoxView HeightRequest="1" Color="#2F2928" Margin="0,18"/>
+
+            <!-- 开发人 -->
+            <Label Text="开发人" FontSize="12" TextColor="#9E8D8C"/>
+            <Label Text="青阳" FontSize="15" TextColor="White" Margin="0,0,0,12"/>
+
+            <!-- 版权说明：年份由代码动态填充（DateTime.Now.Year），跨年无需改代码 -->
+            <Label Text="版权说明" FontSize="12" TextColor="#9E8D8C"/>
+            <Label x:Name="lblCopyright" Text="" FontSize="14" TextColor="#D5C2C1"
+                   LineBreakMode="WordWrap"/>
+
+            <BoxView HeightRequest="1" Color="#2F2928" Margin="0,18"/>
+
+            <!-- 联系我们：不使用任何第三方商标图形/品牌色；点任意一行复制对应账号 -->
+            <VerticalStackLayout Spacing="14">
+                <VerticalStackLayout Spacing="2">
+                    <Label Text="联系我们" FontSize="15" FontAttributes="Bold" TextColor="White"/>
+                    <Label Text="点一下任意一行，复制对应账号。" FontSize="12" TextColor="#9E8D8C"/>
+                </VerticalStackLayout>
+
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                    <Grid.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnContactTapped" CommandParameter="Instagram|qingyang_520"/>
+                    </Grid.GestureRecognizers>
+                    <HorizontalStackLayout Spacing="10" VerticalOptions="Center">
+                        <Label Text="Instagram" FontSize="13.5" TextColor="#D5C2C1" VerticalOptions="Center"/>
+                    </HorizontalStackLayout>
+                    <Label Grid.Column="1" Text="qingyang_520" FontSize="13.5" TextColor="#FBB5B2" StyleId="theme"
+                           HorizontalOptions="End" VerticalOptions="Center"/>
+                </Grid>
+
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                    <Grid.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnContactTapped" CommandParameter="Telegram|@QingYang_520"/>
+                    </Grid.GestureRecognizers>
+                    <HorizontalStackLayout Spacing="10" VerticalOptions="Center">
+                        <Label Text="Telegram" FontSize="13.5" TextColor="#D5C2C1" VerticalOptions="Center"/>
+                    </HorizontalStackLayout>
+                    <Label Grid.Column="1" Text="@QingYang_520" FontSize="13.5" TextColor="#FBB5B2" StyleId="theme"
+                           HorizontalOptions="End" VerticalOptions="Center"/>
+                </Grid>
+
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                    <Grid.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnContactTapped" CommandParameter="抖音|com.qingyang.ai"/>
+                    </Grid.GestureRecognizers>
+                    <HorizontalStackLayout Spacing="10" VerticalOptions="Center">
+                        <Label Text="抖音" FontSize="13.5" TextColor="#D5C2C1" VerticalOptions="Center"/>
+                    </HorizontalStackLayout>
+                    <Label Grid.Column="1" Text="com.qingyang.ai" FontSize="13.5" TextColor="#FBB5B2" StyleId="theme"
+                           HorizontalOptions="End" VerticalOptions="Center"/>
+                </Grid>
+            </VerticalStackLayout>
+
+            <BoxView HeightRequest="1" Color="#2F2928" Margin="0,18"/>
+
+            <Label Text="轻量自研，多模型智能客户端"
+                   FontSize="12.5" TextColor="#9E8D8C" HorizontalOptions="Center"/>
+            <Label Text="开源 AI 应用，本地云端双调度"
+                   FontSize="12.5" TextColor="#9E8D8C" HorizontalOptions="Center"/>
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>
