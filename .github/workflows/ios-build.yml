@@ -29,7 +29,7 @@ env:
 
 jobs:
   build-ios:
-    runs-on: macos-latest        # Apple Silicon Mac，自带 Xcode，能编 ios-arm64
+    runs-on: macos-26            # Xcode 26，匹配 .NET iOS 26 workload
     timeout-minutes: 60
 
     steps:
@@ -42,16 +42,14 @@ jobs:
           dotnet-version: '10.0.x'
 
       - name: 安装 MAUI iOS 工作负载
-        run: |
-          dotnet workload install maui-ios --skip-sign-check
+        run: dotnet workload install maui-ios --skip-sign-check
 
-      - name: 选择 Xcode
-        run: sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
-
+      # Xcode 用 runner 默认（完整安装，含 actool / MacOSX.sdk）；不手动 xcode-select
       - name: 显示环境
         run: |
           dotnet --version
           xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-path
 
       # ---- 注入登录 API 令牌（明文不进仓库，CI 从 Secret 读取）----
       - name: 注入登录 API 令牌
