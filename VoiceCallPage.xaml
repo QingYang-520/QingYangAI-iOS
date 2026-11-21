@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:local="clr-namespace:青阳AI"
+             x:Class="青阳AI.VoiceCallPage"
+             Title="语音通话"
+             BackgroundColor="#121218">
+
+    <!-- 全屏通话页：深色沉浸式，不显示系统导航栏（由代码 NavigationPage.SetHasNavigationBar 关掉） -->
+    <ContentPage.Background>
+        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+            <GradientStop Color="#141420" Offset="0.0"/>
+            <GradientStop Color="#1A1A26" Offset="0.55"/>
+            <GradientStop Color="#101018" Offset="1.0"/>
+        </LinearGradientBrush>
+    </ContentPage.Background>
+
+    <Grid RowDefinitions="Auto,*,Auto" Padding="24,44,24,40">
+
+        <!-- ────────── 顶部：头像 + 名字 + 心情 ────────── -->
+        <VerticalStackLayout Grid.Row="0" Spacing="12" HorizontalOptions="Center">
+
+            <!-- 头像：圆形裁切。没有自画像时用一个主题色底的占位圆 -->
+            <Border x:Name="avatarFrame"
+                    WidthRequest="88" HeightRequest="88"
+                    StrokeThickness="2"
+                    StrokeShape="RoundRectangle 44"
+                    BackgroundColor="#2A2438"
+                    HorizontalOptions="Center">
+                <Grid>
+                    <Label x:Name="lblAvatarFallback"
+                           Text="青"
+                           FontSize="34"
+                           TextColor="#FFFFFF"
+                           HorizontalOptions="Center"
+                           VerticalOptions="Center"/>
+                    <Image x:Name="imgAvatar"
+                           Aspect="AspectFill"
+                           IsVisible="False"/>
+                </Grid>
+            </Border>
+
+            <Label x:Name="lblName"
+                   Text="青阳AI"
+                   FontSize="20"
+                   FontAttributes="Bold"
+                   TextColor="#FFFFFF"
+                   HorizontalOptions="Center"/>
+
+            <Label x:Name="lblMood"
+                   Text=""
+                   FontSize="13"
+                   TextColor="#9E8D8C"
+                   HorizontalOptions="Center"/>
+        </VerticalStackLayout>
+
+        <!-- ────────── 中部：大圆形呼吸动画 ────────── -->
+        <Grid Grid.Row="1" VerticalOptions="Center" HorizontalOptions="Center">
+            <!-- GraphicsView 自己画：多层半透明圆 + 外圈光环，颜色/呼吸由代码驱动 -->
+            <GraphicsView x:Name="breathView"
+                          WidthRequest="260"
+                          HeightRequest="260"/>
+        </Grid>
+
+        <!-- ────────── 底部：状态文字 + 挂断 ────────── -->
+        <VerticalStackLayout Grid.Row="2" Spacing="22" HorizontalOptions="Center">
+
+            <!-- 状态文字：监听中 / 正在听 / 思考中 / 说话中 -->
+            <Label x:Name="lblStatus"
+                   Text="正在连接…"
+                   FontSize="15"
+                   TextColor="#C9C4D4"
+                   HorizontalOptions="Center"/>
+
+            <!-- 最近一轮对话的回显（用户说了什么 / 她答了什么），一两行就够 -->
+            <Label x:Name="lblLastLine"
+                   Text=""
+                   FontSize="13"
+                   TextColor="#7E7788"
+                   HorizontalOptions="Center"
+                   HorizontalTextAlignment="Center"
+                   MaxLines="3"
+                   LineBreakMode="TailTruncation"
+                   Padding="8,0"/>
+
+            <!-- 挂断：红色圆形按钮，通话页最显眼的那个 -->
+            <Border x:Name="btnHangup"
+                    WidthRequest="72" HeightRequest="72"
+                    StrokeThickness="0"
+                    StrokeShape="RoundRectangle 36"
+                    BackgroundColor="#E5484D"
+                    HorizontalOptions="Center">
+                <Border.GestureRecognizers>
+                    <TapGestureRecognizer Tapped="OnHangupTapped"/>
+                </Border.GestureRecognizers>
+                <!-- 挂断图标：用 MorphIcon 里已有的 X，简单明确 -->
+                <local:MorphIcon Icon="X" IconSize="28" IconColor="White" StrokeWidth="2.4"
+                                 HorizontalOptions="Center" VerticalOptions="Center"/>
+            </Border>
+
+            <Label Text="点这里挂断"
+                   FontSize="12"
+                   TextColor="#6E6778"
+                   HorizontalOptions="Center"/>
+        </VerticalStackLayout>
+    </Grid>
+</ContentPage>
