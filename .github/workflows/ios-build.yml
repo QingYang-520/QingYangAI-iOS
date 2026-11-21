@@ -91,8 +91,11 @@ jobs:
           # 解压现成 IPA
           rm -rf Payload && mkdir -p Payload
           unzip -q "$PUBIPA" -d Payload
-          APP="$(find Payload -maxdepth 1 -name '*.app' -type d | head -1)"
+          echo "--- Payload 结构 ---"
+          find Payload -maxdepth 3 -name '*.app' -type d
+          APP="$(find Payload -name '*.app' -type d | head -1)"
           echo "APP=$APP"
+          test -n "$APP"
           # 给 Mach-O 主执行文件打上 get-task-allow（JIT 权限）等 entitlements
           BIN="$APP/QingYangAI"
           if [ -f "$BIN" ]; then
