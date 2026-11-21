@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:local="clr-namespace:青阳AI"
+             x:Class="青阳AI.SearchPage"
+             Title="搜索聊天记录"
+             NavigationPage.HasNavigationBar="False"
+             BackgroundColor="#181211">
+
+    <Grid RowDefinitions="Auto,Auto,*">
+
+        <!-- 顶部标题栏（系统导航栏已隐藏，自绘：返回 + 标题 + 结果条数） -->
+        <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="6"
+              Padding="8,10,14,10" BackgroundColor="#181211">
+            <Border BackgroundColor="Transparent" StrokeThickness="0"
+                    Padding="8,4" VerticalOptions="Center">
+                <Border.GestureRecognizers>
+                    <TapGestureRecognizer Tapped="OnBackTapped"/>
+                </Border.GestureRecognizers>
+                <local:MorphIcon Icon="ChevronLeft" IconSize="20"
+                                 IconColor="#D5C2C1" StrokeWidth="2"/>
+            </Border>
+            <Label Grid.Column="1" Text="搜索聊天记录"
+                   FontSize="18" FontAttributes="Bold"
+                   TextColor="White" VerticalOptions="Center"/>
+            <Label Grid.Column="2" x:Name="lblCount" Text=""
+                   FontSize="12" TextColor="#9E8D8C" VerticalOptions="Center"/>
+        </Grid>
+
+        <!-- 搜索框：MAUI 自带 SearchBar。输入停顿 300ms 才真正查库（防抖在 .cs 里） -->
+        <Border Grid.Row="1" BackgroundColor="#1F1A19"
+                StrokeThickness="1" Stroke="#2B2524"
+                StrokeShape="RoundRectangle 12"
+                Padding="2,0" Margin="12,0,12,8">
+            <SearchBar x:Name="searchBar"
+                       Placeholder="搜索你们聊过的话…"
+                       TextChanged="OnSearchTextChanged"
+                       BackgroundColor="Transparent"
+                       TextColor="#EDEDED"
+                       PlaceholderColor="#9E8D8C"
+                       CancelButtonColor="#FBB5B2"/>
+        </Border>
+
+        <!-- 结果区 -->
+        <Grid Grid.Row="2">
+
+            <!-- 提示 / 空结果文案（有关键字且有结果时隐藏） -->
+            <Label x:Name="lblHint" Text="输入关键字，搜索你们聊过的话"
+                   FontSize="14" TextColor="#9E8D8C"
+                   HorizontalOptions="Center" VerticalOptions="Start"
+                   HorizontalTextAlignment="Center"
+                   Margin="24,60,24,0"/>
+
+            <!-- 结果列表：用户消息靠右、AI 消息靠左（HorizontalOptions 由 SearchHit.Align 给出） -->
+            <CollectionView x:Name="resultList" Margin="10,2">
+                <CollectionView.ItemTemplate>
+                    <DataTemplate>
+                        <Grid Padding="0,4">
+                            <Border BackgroundColor="#1F1A19"
+                                    StrokeThickness="1" Stroke="#2B2524"
+                                    StrokeShape="RoundRectangle 14"
+                                    Padding="14,10"
+                                    MaximumWidthRequest="320"
+                                    HorizontalOptions="{Binding Align}">
+                                <Border.Shadow>
+                                    <Shadow Brush="#000000" Opacity="0.20" Radius="10" Offset="0,3"/>
+                                </Border.Shadow>
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer Tapped="OnResultTapped"
+                                                          CommandParameter="{Binding .}"/>
+                                </Border.GestureRecognizers>
+                                <VerticalStackLayout Spacing="5">
+                                    <!-- 谁说的 + 时间 + 收藏标记 -->
+                                    <HorizontalStackLayout Spacing="6">
+                                        <Label Text="{Binding Who}"
+                                               FontSize="12" FontAttributes="Bold"
+                                               TextColor="{Binding WhoColor}"
+                                               VerticalOptions="Center"/>
+                                        <Label Text="{Binding TimeText}"
+                                               FontSize="11" TextColor="#9E8D8C"
+                                               VerticalOptions="Center"/>
+                                        <Label Text="已收藏"
+                                               IsVisible="{Binding IsFavorite}"
+                                               FontSize="11" TextColor="#FBB5B2" StyleId="theme"
+                                               VerticalOptions="Center"/>
+                                    </HorizontalStackLayout>
+
+                                    <!-- 正文摘要：关键字用 FormattedString 高亮 -->
+                                    <Label FormattedText="{Binding Highlighted}"
+                                           TextColor="#EDEDED"
+                                           FontSize="15"
+                                           LineBreakMode="WordWrap"/>
+                                </VerticalStackLayout>
+                            </Border>
+                        </Grid>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+        </Grid>
+    </Grid>
+</ContentPage>
