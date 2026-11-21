@@ -78,7 +78,8 @@ jobs:
             -p:CodesignKey="-" \
             -p:CodesignProvision="-" \
             -p:CODE_SIGNING_ALLOWED=NO \
-            -p:UseInterpreter=true
+            -p:UseInterpreter=true \
+            -p:ValidateXcodeVersion=false
 
       - name: 安装 ldid（巨魔签名工具）
         run: brew install ldid
