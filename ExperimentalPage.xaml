@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:local="clr-namespace:青阳AI"
+             x:Class="青阳AI.ExperimentalPage"
+             Title="实验性功能"
+             BackgroundColor="#181211">
+    <ScrollView>
+        <VerticalStackLayout Padding="16,12,16,28" Spacing="20">
+
+            <!-- 说明 -->
+            <Label Text="这里的功能还没稳定，或只对进阶用户有意义。用之前请知道自己在做什么。"
+                   FontSize="12.5" TextColor="#9E8D8C" LineBreakMode="WordWrap"/>
+
+            <!-- ══════════ 本地部署大模型（下拉框） ══════════ -->
+            <VerticalStackLayout Spacing="10">
+                <Border BackgroundColor="#1F1A19" StrokeThickness="1" Stroke="#2B2524" StrokeShape="RoundRectangle 14" Padding="14,10">
+                    <VerticalStackLayout Spacing="0">
+                        <!-- 下拉标题行 -->
+                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                            <Grid.GestureRecognizers>
+                                <TapGestureRecognizer Tapped="OnToggleLocalModel"/>
+                            </Grid.GestureRecognizers>
+                            <local:MorphIcon x:Name="localModelArrow" Icon="ChevronRight" IconColor="#D5C2C1" IconSize="16" StrokeWidth="2.5" VerticalOptions="Center"/>
+                            <Label Grid.Column="1" Text="本地部署大模型" TextColor="White" FontSize="16" FontAttributes="Bold" VerticalOptions="Center"/>
+                        </Grid>
+
+                        <!-- 下拉内容 -->
+                        <VerticalStackLayout x:Name="localModelBubbleContent" IsVisible="False" Spacing="10" Margin="0,12,0,0">
+                            <Label Text="在手机上直接跑模型。大多数机型和定制系统跑不起来，能装就装，跑不起来会直说。"
+                                   FontSize="11.5" TextColor="#9E8D8C" LineBreakMode="WordWrap"/>
+
+                            <BoxView HeightRequest="1" Color="#2F2928"/>
+
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                <Picker x:Name="picDeployModel" Grid.Column="0" Title="选取模型"
+                                        BackgroundColor="#2F2928" TextColor="White"
+                                        SelectedIndexChanged="OnDeployModelChanged"/>
+                                <Button x:Name="btnFetchDeployList" Grid.Column="1" Text="获取模型列表"
+                                        BackgroundColor="#3A3333" TextColor="White" FontSize="12"
+                                        Padding="12,4" Clicked="OnFetchDeployListClicked"/>
+                            </Grid>
+
+                            <Label x:Name="lblDeployInfo" Text="" FontSize="11.5" TextColor="#9E8D8C"
+                                   LineBreakMode="WordWrap"/>
+
+                            <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                                <Button x:Name="btnCheckLocalSvc" Grid.Column="0" Text="检查本机服务"
+                                        BackgroundColor="#3A3333" TextColor="White" FontSize="12"
+                                        Padding="10,4" Clicked="OnCheckLocalServiceClicked"/>
+                                <Button x:Name="btnSetupLocalSvc" Grid.Column="1" Text="安装/启动服务"
+                                        BackgroundColor="#3A3333" TextColor="White" FontSize="12"
+                                        Padding="10,4" Clicked="OnSetupLocalServiceClicked"/>
+                            </Grid>
+                            <Label x:Name="lblLocalSvcStatus" Text="" FontSize="11.5" TextColor="#9E8D8C"
+                                   LineBreakMode="WordWrap"/>
+
+                            <Button x:Name="btnTermuxGuide" Text="Termux 部署指引"
+                                    BackgroundColor="#3A3333" TextColor="White" FontSize="12"
+                                    Padding="10,4" Clicked="OnTermuxGuideClicked"/>
+
+                            <Button x:Name="btnDeployModel" Text="部署模型"
+                                    BackgroundColor="#FBB5B2" TextColor="White" FontAttributes="Bold"
+                                    Clicked="OnDeployModelClicked"/>
+
+                            <VerticalStackLayout x:Name="deployProgressBox" IsVisible="False" Spacing="6">
+                                <ProgressBar x:Name="pbDeploy" Progress="0" ProgressColor="#FBB5B2"/>
+                                <Label x:Name="lblDeployProgress" Text="" FontSize="11.5" TextColor="#D5C2C1"
+                                       LineBreakMode="WordWrap"/>
+                            </VerticalStackLayout>
+
+                            <VerticalStackLayout x:Name="deployedList" Spacing="6"/>
+
+                            <HorizontalStackLayout Spacing="10">
+                                <Switch x:Name="swUseLocalModel" Toggled="OnUseLocalModelToggled" StyleId="theme"/>
+                                <Label Text="启用模型" TextColor="White" FontAttributes="Bold" VerticalOptions="Center"/>
+                            </HorizontalStackLayout>
+
+                            <BoxView HeightRequest="1" Color="#2F2928"/>
+
+                            <Label Text="服务地址" FontSize="13" FontAttributes="Bold" TextColor="White"/>
+                            <Entry x:Name="entLocalUrl" Placeholder="http://192.168.1.100:11434"
+                                   PlaceholderColor="#9E8D8C" BackgroundColor="#2F2928" TextColor="White" Unfocused="OnLocalModelEntryChanged"/>
+
+                            <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
+                                <Button x:Name="btnLocalUrlThisPhone" Grid.Column="0" Text="本机服务"
+                                        FontSize="11" Padding="6,4" BackgroundColor="#3A3333" TextColor="White"
+                                        Clicked="OnLocalUrlThisPhoneClicked"/>
+                                <Button x:Name="btnLocalUrlPc" Grid.Column="1" Text="电脑 IP 模板"
+                                        FontSize="11" Padding="6,4" BackgroundColor="#3A3333" TextColor="White"
+                                        Clicked="OnLocalUrlPcClicked"/>
+                                <Button x:Name="btnLocalTest" Grid.Column="2" Text="测试连接"
+                                        FontSize="11" Padding="6,4" BackgroundColor="#3A3333" TextColor="White"
+                                        Clicked="OnLocalTestClicked"/>
+                            </Grid>
+
+                            <Label Text="模型名" FontSize="13" FontAttributes="Bold" TextColor="White"/>
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                <Entry x:Name="entLocalModel" Grid.Column="0" Placeholder="如 qwen2.5:7b"
+                                       PlaceholderColor="#9E8D8C" BackgroundColor="#2F2928" TextColor="White" Unfocused="OnLocalModelEntryChanged"/>
+                                <Button x:Name="btnLocalFetchModels" Grid.Column="1" Text="拉取模型名"
+                                        FontSize="11" Padding="10,4" BackgroundColor="#3A3333" TextColor="White"
+                                        Clicked="OnLocalFetchModelsClicked"/>
+                            </Grid>
+
+                            <Label Text="API Key" FontSize="13" FontAttributes="Bold" TextColor="White"/>
+                            <Entry x:Name="entLocalKey" Placeholder="留空即可" IsPassword="True"
+                                   PlaceholderColor="#9E8D8C" BackgroundColor="#2F2928" TextColor="White" Unfocused="OnLocalModelEntryChanged"/>
+
+                            <Label x:Name="lblLocalHint" Text="" FontSize="11" TextColor="#9E8D8C" LineBreakMode="WordWrap"/>
+                        </VerticalStackLayout>
+                    </VerticalStackLayout>
+                </Border>
+            </VerticalStackLayout>
+
+            <!-- ══════════ 替换原机AI助手（下拉框） ══════════ -->
+            <VerticalStackLayout Spacing="10">
+                <Border BackgroundColor="#1F1A19" StrokeThickness="1" Stroke="#2B2524" StrokeShape="RoundRectangle 14" Padding="14,10">
+                    <VerticalStackLayout Spacing="0">
+                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                            <Grid.GestureRecognizers>
+                                <TapGestureRecognizer Tapped="OnToggleAssistant"/>
+                            </Grid.GestureRecognizers>
+                            <local:MorphIcon x:Name="assistantArrow" Icon="ChevronRight" IconColor="#D5C2C1" IconSize="16" StrokeWidth="2.5" VerticalOptions="Center"/>
+                            <Label Grid.Column="1" Text="替换原机AI助手" TextColor="White" FontSize="16" FontAttributes="Bold" VerticalOptions="Center"/>
+                        </Grid>
+
+                        <VerticalStackLayout x:Name="assistantBubbleContent" IsVisible="False" Spacing="10" Margin="0,12,0,0">
+                            <Label Text="把系统的默认助手换成青阳AI。替换后长按电源键唤起的就不是原机助手了。"
+                                   FontSize="11.5" TextColor="#9E8D8C" LineBreakMode="WordWrap"/>
+
+                            <BoxView HeightRequest="1" Color="#2F2928"/>
+
+                            <Label x:Name="lblAssistState" Text="当前助手：—" FontSize="12" TextColor="#D5C2C1" LineBreakMode="WordWrap"/>
+
+                            <Button x:Name="btnAssistReplace" Text="设青阳AI为默认助手"
+                                    BackgroundColor="#FBB5B2" TextColor="White" FontAttributes="Bold"
+                                    Clicked="OnReplaceAssistantClicked"/>
+                            <Button x:Name="btnAssistOpenSettings" Text="打开系统默认应用设置"
+                                    FontSize="12" Padding="10,4" BackgroundColor="#3A3333" TextColor="White"
+                                    Clicked="OnOpenAssistSettingsClicked"/>
+
+                            <BoxView HeightRequest="1" Color="#2F2928"/>
+
+                            <HorizontalStackLayout Spacing="10">
+                                <Switch x:Name="swAssistantGlow" Toggled="OnAssistantGlowToggled" StyleId="theme"/>
+                                <Label Text="唤醒光效" TextColor="White" FontAttributes="Bold" VerticalOptions="Center"/>
+                            </HorizontalStackLayout>
+                            <Label Text="被唤醒时播放白色浇口 + 蓝粉紫跑马灯。需要悬浮窗权限。"
+                                   FontSize="11" TextColor="#9E8D8C" LineBreakMode="WordWrap"/>
+
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                <Label x:Name="lblOverlayState" Text="悬浮窗：未开启" FontSize="12"
+                                       TextColor="#F2B8B5" VerticalOptions="Center"/>
+                                <Button x:Name="btnOverlayPerm" Grid.Column="1" Text="去开启" FontSize="12"
+                                        Padding="12,4" BackgroundColor="#3A3333" TextColor="#F2B8B5"
+                                        Clicked="OnOverlayPermClicked"/>
+                            </Grid>
+                            <Button x:Name="btnGlowPreview" Text="预览光效"
+                                    FontSize="12" Padding="10,4" BackgroundColor="#3A3333" TextColor="White"
+                                    Clicked="OnPreviewGlowClicked"/>
+
+                            <Label x:Name="lblAssistDiag" Text="" FontSize="10.5" TextColor="#9E8D8C" LineBreakMode="WordWrap"/>
+                        </VerticalStackLayout>
+                    </VerticalStackLayout>
+                </Border>
+            </VerticalStackLayout>
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>
