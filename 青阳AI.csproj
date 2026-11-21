@@ -21,8 +21,8 @@
     <ApplicationDisplayVersion>1.10.24</ApplicationDisplayVersion>
     <ApplicationVersion>142</ApplicationVersion>
 
-    <!-- iOS 最低版本：JIT / AltJIT 需 iOS 14+ -->
-    <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">14.0</SupportedOSPlatformVersion>
+    <!-- iOS 最低版本：workload 要求 >= 15.0 -->
+    <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">15.0</SupportedOSPlatformVersion>
 
     <!--
       使用 .NET 解释器：iOS 上 AOT 之外需解释器承载动态代码（与 JIT/AltJIT 场景配套）。
