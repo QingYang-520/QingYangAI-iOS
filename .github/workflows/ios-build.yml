@@ -1,0 +1,119 @@
+name: 打包 iOS IPA（巨魔/TrollStore 版）
+
+# 触发方式：
+#   1. 手动：GitHub 网页 Actions → 选本工作流 → Run workflow
+#   2. push 到 main 且改动了源码（可选）
+# 说明：本工作流产出 Ad-Hoc / 伪签名的 IPA，供 TrollStore（巨魔）侧载安装。
+#       TrollStore 安装的 App 自带 get-task-allow → 天然具备 JIT 权限。
+
+on:
+  workflow_dispatch:
+    inputs:
+      ipa_name:
+        description: '产出 IPA 的文件名（放 Z 盘根目录用）'
+        required: false
+        default: '青阳AI-1.10.24.ipa'
+  push:
+    branches: [ main ]
+    paths:
+      - '**.cs'
+      - '**.xaml'
+      - '**.csproj'
+      - '**.plist'
+      - '.github/workflows/ios-build.yml'
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+
+jobs:
+  build-ios:
+    runs-on: macos-14        # Apple Silicon Mac，自带 Xcode，能编 ios-arm64
+    timeout-minutes: 60
+
+    steps:
+      - name: 检出源码
+        uses: actions/checkout@v4
+
+      - name: 安装 .NET 10 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: 安装 MAUI iOS 工作负载
+        run: |
+          dotnet workload install maui-ios --skip-sign-check
+
+      - name: 选择 Xcode
+        run: sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+
+      - name: 显示环境
+        run: |
+          dotnet --version
+          xcodebuild -version
+
+      # ---- 注入登录 API 令牌（明文不进仓库，CI 从 Secret 读取）----
+      - name: 注入登录 API 令牌
+        env:
+          LOGIN_API_TOKEN: ${{ secrets.LOGIN_API_TOKEN }}
+        run: |
+          if [ -n "$LOGIN_API_TOKEN" ]; then
+            python3 inject_token.py "$LOGIN_API_TOKEN"
+          else
+            echo "LOGIN_API_TOKEN 未配置：产出 IPA 的登录功能需在 App 内手填令牌"
+          fi
+
+      # ---- 编译并产出 IPA ----
+      # Ad-Hoc 免开发者账号签名：
+      #   CODE_SIGNING_ALLOWED=NO 只编译不签名 → 生成 .app
+      #   再用 ldid 伪签名（TrollStore 标准做法）→ 打成可安装的 IPA
+      - name: 编译 iOS App（不签名）
+        run: |
+          dotnet publish 青阳AI.csproj \
+            -f net10.0-ios \
+            -c Release \
+            -p:RuntimeIdentifier=ios-arm64 \
+            -p:ArchiveOnBuild=false \
+            -p:CodesignKey="-" \
+            -p:CodesignProvision="-" \
+            -p:CODE_SIGNING_ALLOWED=NO \
+            -p:UseInterpreter=true
+
+      - name: 安装 ldid（巨魔签名工具）
+        run: brew install ldid
+
+      - name: 伪签名 + 打 IPA（TrollStore 可用）
+        run: |
+          set -euo pipefail
+          APP="$(find bin/Release/net10.0-ios/ios-arm64/publish -maxdepth 1 -name '*.app' -type d | head -1)"
+          echo "APP=$APP"
+
+          # 给 Mach-O 主执行文件打上 get-task-allow（JIT 权限）等 entitlements
+          BIN="$APP/QingYangAI"
+          if [ -f "$BIN" ]; then
+            ldid -SPlatforms/iOS/TrollStore.entitlements "$BIN"
+          fi
+
+          # 也签一下 Frameworks / dylib（若有）
+          find "$APP" -type f \( -name '*.dylib' -o -name '*.framework' \) -print0 2>/dev/null | while IFS= read -r -d '' f; do
+            ldid -SPlatforms/iOS/TrollStore.entitlements "$f" 2>/dev/null || true
+          done
+
+          # 打成 IPA（标准结构：Payload/xxx.app）
+          rm -rf Payload
+          mkdir -p Payload
+          cp -R "$APP" Payload/
+          zip -qry app.ipa Payload
+          IPA_NAME="${{ github.event.inputs.ipa_name || '青阳AI-1.10.24.ipa' }}"
+          mv app.ipa "$IPA_NAME"
+          echo "IPA_PATH=$IPA_NAME" >> $GITHUB_ENV
+          ls -lh "$IPA_NAME"
+
+      - name: 上传 IPA 为 Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: qingyang-ios-ipa
+          path: ${{ env.IPA_PATH }}
+          if-no-files-found: error
+          retention-days: 90
