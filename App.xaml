@@ -1,0 +1,54 @@
+﻿<?xml version = "1.0" encoding = "UTF-8" ?>
+<Application xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:local="clr-namespace:青阳AI"
+             x:Class="青阳AI.App">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Resources/Styles/Colors.xaml" />
+                <ResourceDictionary Source="Resources/Styles/Styles.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+            <!-- ── 聊天气泡主题色（由 ThemeManager.NotifyChanged 动态改值）──
+                 气泡在 CollectionView 的 DataTemplate 里，Walk 遍历不到（虚拟化容器），
+                 所以改用 DynamicResource：换色时改这里的值，所有已渲染/将渲染的气泡都会刷新。
+                 规则（2026-10-04 用户要求）：**只有用户自己的气泡**跟主题色走；
+                 AI 气泡固定不跟主题色变（固定深底 + 浅字）。
+                 初值 = 默认桃色主题提亮后的结果，跟 AppSettings.DefaultThemeColor 对应。 -->
+            <Color x:Key="BubbleUserColor">#FBB5B2</Color>
+            <Color x:Key="BubbleTextColor">#FFFFFF</Color>
+            <Color x:Key="BubbleTailColor">#FBB5B2</Color>
+            <!-- AI 气泡：固定色，ThemeManager 会显式写回，保证换主题时不被带偏 -->
+            <Color x:Key="BubbleAIColor">#241E1E</Color>
+            <Color x:Key="BubbleAITextColor">#EDE7E6</Color>
+
+            <!-- M3 Expressive 暗色配色方案（备用主题 Custom 系） -->
+            <ResourceDictionary>
+                <Color x:Key="M3Primary">#FBB5B2</Color>
+                <Color x:Key="M3OnPrimary">#5D161C</Color>
+                <Color x:Key="M3PrimaryContainer">#792E31</Color>
+                <Color x:Key="M3OnPrimaryContainer">#FDDAD8</Color>
+                <Color x:Key="M3SecondaryContainer">#5A403F</Color>
+                <Color x:Key="M3OnSecondaryContainer">#FBDBD9</Color>
+                <Color x:Key="M3TertiaryContainer">#52452B</Color>
+                <Color x:Key="M3OnTertiaryContainer">#F3E0C0</Color>
+                <Color x:Key="M3Surface">#181211</Color>
+                <Color x:Key="M3SurfaceContainerLow">#201A1A</Color>
+                <Color x:Key="M3SurfaceContainer">#241E1E</Color>
+                <Color x:Key="M3SurfaceContainerHigh">#2F2928</Color>
+                <Color x:Key="M3SurfaceContainerHighest">#3A3333</Color>
+                <Color x:Key="M3OnSurface">#E9E1E0</Color>
+                <Color x:Key="M3OnSurfaceVariant">#D5C2C1</Color>
+                <Color x:Key="M3Outline">#9E8D8C</Color>
+                <Color x:Key="M3OutlineVariant">#524342</Color>
+                <Color x:Key="M3InverseSurface">#E9E1E0</Color>
+                <Color x:Key="M3InverseOnSurface">#352F2F</Color>
+                <Color x:Key="M3InversePrimary">#944747</Color>
+                <Color x:Key="M3Error">#F2B8B5</Color>
+                <Color x:Key="M3OnError">#601410</Color>
+                <Color x:Key="M3ErrorContainer">#8C1D18</Color>
+                <Color x:Key="M3OnErrorContainer">#F9DEDC</Color>
+            </ResourceDictionary>
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>
