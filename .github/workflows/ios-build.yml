@@ -88,14 +88,17 @@ jobs:
           PUBIPA="$(find bin/Release/net10.0-ios/ios-arm64/publish -maxdepth 1 -name '*.ipa' | head -1)"
           echo "PUBIPA=$PUBIPA"
           test -n "$PUBIPA"
-          # 解压现成 IPA
+          # publish 产出的 IPA 内部是 Payload/QingYangAI.app/；解压到临时目录
+          rm -rf unpack && mkdir -p unpack
+          unzip -q "$PUBIPA" -d unpack
+          SRC_APP="$(find unpack -name '*.app' -type d | head -1)"
+          echo "SRC_APP=$SRC_APP"
+          test -n "$SRC_APP"
+          # 重建标准单层结构：Payload/QingYangAI.app/
           rm -rf Payload && mkdir -p Payload
-          unzip -q "$PUBIPA" -d Payload
-          echo "--- Payload 结构 ---"
-          find Payload -maxdepth 3 -name '*.app' -type d
-          APP="$(find Payload -name '*.app' -type d | head -1)"
+          cp -R "$SRC_APP" Payload/
+          APP="Payload/$(basename "$SRC_APP")"
           echo "APP=$APP"
-          test -n "$APP"
           # 给 Mach-O 主执行文件打上 get-task-allow（JIT 权限）等 entitlements
           BIN="$APP/QingYangAI"
           if [ -f "$BIN" ]; then
@@ -104,7 +107,7 @@ jobs:
           find "$APP" -type f \( -name '*.dylib' -o -name '*.framework' \) -print0 2>/dev/null | while IFS= read -r -d '' f; do
             ldid -SPlatforms/iOS/TrollStore.entitlements "$f" 2>/dev/null || true
           done
-          # 重新打包
+          # 重新打包（标准结构：Payload/QingYangAI.app/）
           zip -qry app.ipa Payload
           IPA_NAME="${{ github.event.inputs.ipa_name || 'QingYangAI-1.10.24.ipa' }}"
           mv app.ipa "$IPA_NAME"
