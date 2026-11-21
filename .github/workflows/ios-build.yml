@@ -39,10 +39,10 @@ jobs:
       - name: 安装 .NET 10 SDK
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '10.0.x'
+          dotnet-version: '10.0.302'
 
-      - name: 安装 MAUI iOS 工作负载
-        run: dotnet workload install maui-ios --skip-sign-check
+      - name: 安装 MAUI iOS 工作负载（匹配 Xcode 26.6 的 10.0.302.0）
+        run: dotnet workload install maui-ios --version 10.0.302.0 --skip-sign-check
 
       # Xcode 用 runner 默认（完整安装，含 actool / MacOSX.sdk）；不手动 xcode-select
       - name: 显示环境
