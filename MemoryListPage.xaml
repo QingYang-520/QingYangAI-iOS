@@ -1,0 +1,102 @@
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="青阳AI.MemoryListPage"
+             Title="Ta记住的事"
+             BackgroundColor="#181211">
+
+    <Grid RowDefinitions="Auto,Auto,Auto,*">
+
+        <!-- 顶部标题栏 -->
+        <Grid Grid.Row="0" Padding="16,10" BackgroundColor="#181211">
+            <Label Text="Ta记住的事"
+                   FontSize="18"
+                   FontAttributes="Bold"
+                   TextColor="White"/>
+        </Grid>
+
+        <Label Grid.Row="1"
+               Text="这些是Ta从聊天里自己记下的，删掉后Ta就不记得了。"
+               FontSize="12"
+               TextColor="#9E8D8C"
+               Padding="16,8,16,0"/>
+
+        <!-- 遗忘曲线提示：长期没被用到的记忆会被淡忘（归档），点「恢复」能重新记起来 -->
+        <Label Grid.Row="2"
+               x:Name="lblArchived"
+               Text=""
+               FontSize="12"
+               TextColor="#8C7F7E"
+               Padding="16,6,16,0"
+               IsVisible="False"/>
+
+        <!-- 记忆列表：新的在前，每条可单独删除；已淡忘的灰显并可恢复 -->
+        <CollectionView Grid.Row="3" x:Name="memoryList" Margin="10,6">
+            <CollectionView.EmptyView>
+                <Label Text="还没有记忆。多陪Ta聊聊，Ta会开始记住你的。"
+                       TextColor="#9E8D8C"
+                       FontSize="14"
+                       HorizontalOptions="Center"
+                       Margin="0,80,0,0"/>
+            </CollectionView.EmptyView>
+            <CollectionView.ItemTemplate>
+                <DataTemplate>
+                    <Border BackgroundColor="{Binding CardColor}"
+                            StrokeThickness="0"
+                            StrokeShape="RoundRectangle 14"
+                            Padding="0"
+                            Margin="0,5">
+                        <Border.Shadow>
+                            <Shadow Brush="#000000" Opacity="0.20" Radius="10" Offset="0,3"/>
+                        </Border.Shadow>
+                        <Grid ColumnDefinitions="4,*,Auto" ColumnSpacing="0">
+                            <!-- 左侧竖条：活跃为主题色，已淡忘为暗灰 -->
+                            <BoxView Grid.Column="0" Color="{Binding BarColor}"/>
+                            <VerticalStackLayout Grid.Column="1" Spacing="5" Padding="14,12">
+                                <Label Text="{Binding Content}"
+                                       TextColor="{Binding TextColor}"
+                                       FontSize="15"
+                                       LineBreakMode="WordWrap"/>
+                                <HorizontalStackLayout Spacing="8">
+                                    <Label Text="{Binding CreatedText}"
+                                           TextColor="#9E8D8C"
+                                           FontSize="11"/>
+                                    <!-- 「已淡忘」标签：只有归档项才显示 -->
+                                    <Border BackgroundColor="#2B2524"
+                                            StrokeThickness="1"
+                                            Stroke="#3A3231"
+                                            StrokeShape="RoundRectangle 8"
+                                            Padding="6,1"
+                                            IsVisible="{Binding IsArchived}"
+                                            VerticalOptions="Center">
+                                        <Label Text="已淡忘"
+                                               FontSize="10"
+                                               TextColor="#8C7F7E"/>
+                                    </Border>
+                                </HorizontalStackLayout>
+                            </VerticalStackLayout>
+                            <!-- 活跃 → 删；已淡忘 → 恢复 -->
+                            <Button Grid.Column="2"
+                                    Text="删"
+                                    FontSize="12"
+                                    Padding="10,2"
+                                    BackgroundColor="Transparent"
+                                    TextColor="#F2B8B5"
+                                    VerticalOptions="Center"
+                                    IsVisible="{Binding IsLive}"
+                                    Clicked="OnDeleteMemoryClicked"/>
+                            <Button Grid.Column="2"
+                                    Text="恢复"
+                                    FontSize="12"
+                                    Padding="10,2"
+                                    BackgroundColor="Transparent"
+                                    TextColor="#C4B5FD" StyleId="theme"
+                                    VerticalOptions="Center"
+                                    IsVisible="{Binding IsArchived}"
+                                    Clicked="OnRestoreMemoryClicked"/>
+                        </Grid>
+                    </Border>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+    </Grid>
+</ContentPage>
