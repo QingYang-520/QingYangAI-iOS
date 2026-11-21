@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:local="clr-namespace:青阳AI"
+             x:Class="青阳AI.FavoritePage"
+             Title="我的收藏"
+             NavigationPage.HasNavigationBar="False"
+             BackgroundColor="#181211">
+
+    <Grid RowDefinitions="Auto,Auto,*">
+
+        <!-- 顶部标题栏（自绘：返回 + 标题 + 条数） -->
+        <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="6"
+              Padding="8,10,14,10" BackgroundColor="#181211">
+            <Border BackgroundColor="Transparent" StrokeThickness="0"
+                    Padding="8,4" VerticalOptions="Center">
+                <Border.GestureRecognizers>
+                    <TapGestureRecognizer Tapped="OnBackTapped"/>
+                </Border.GestureRecognizers>
+                <local:MorphIcon Icon="ChevronLeft" IconSize="20"
+                                 IconColor="#D5C2C1" StrokeWidth="2"/>
+            </Border>
+            <Label Grid.Column="1" Text="我的收藏"
+                   FontSize="18" FontAttributes="Bold"
+                   TextColor="White" VerticalOptions="Center"/>
+            <Label Grid.Column="2" x:Name="lblCount" Text=""
+                   FontSize="12" TextColor="#9E8D8C" VerticalOptions="Center"/>
+        </Grid>
+
+        <Label Grid.Row="1"
+               Text="收藏的是你们聊过的话，可以随时回看，也可以取消收藏。"
+               FontSize="12" TextColor="#9E8D8C"
+               Padding="16,0,16,8"/>
+
+        <!-- 收藏列表：新的在前 -->
+        <CollectionView Grid.Row="2" x:Name="favList" Margin="10,2">
+            <CollectionView.EmptyView>
+                <Label Text="还没有收藏。在聊天里长按一条消息，选「收藏」就能存下来。"
+                       TextColor="#9E8D8C"
+                       FontSize="14"
+                       HorizontalTextAlignment="Center"
+                       HorizontalOptions="Center"
+                       Margin="24,70,24,0"/>
+            </CollectionView.EmptyView>
+            <CollectionView.ItemTemplate>
+                <DataTemplate>
+                    <Grid Padding="0,4">
+                        <Border BackgroundColor="#1F1A19"
+                                StrokeThickness="1" Stroke="#2B2524"
+                                StrokeShape="RoundRectangle 14"
+                                Padding="14,10"
+                                MaximumWidthRequest="330"
+                                HorizontalOptions="{Binding Align}">
+                            <Border.Shadow>
+                                <Shadow Brush="#000000" Opacity="0.20" Radius="10" Offset="0,3"/>
+                            </Border.Shadow>
+                            <VerticalStackLayout Spacing="6">
+                                <!-- 谁说的 + 时间 -->
+                                <HorizontalStackLayout Spacing="6">
+                                    <Label Text="{Binding Who}"
+                                           FontSize="12" FontAttributes="Bold"
+                                           TextColor="{Binding WhoColor}"
+                                           VerticalOptions="Center"/>
+                                    <Label Text="{Binding TimeText}"
+                                           FontSize="11" TextColor="#9E8D8C"
+                                           VerticalOptions="Center"/>
+                                </HorizontalStackLayout>
+
+                                <!-- 正文（空正文时用 DisplayContent 里的占位文案） -->
+                                <Label Text="{Binding DisplayContent}"
+                                       TextColor="#EDEDED"
+                                       FontSize="15"
+                                       LineBreakMode="WordWrap"/>
+
+                                <!-- 操作行：去聊天页看看 / 复制 / 取消收藏 -->
+                                <HorizontalStackLayout Spacing="10" HorizontalOptions="End">
+                                    <Border BackgroundColor="Transparent" StrokeThickness="0"
+                                            Padding="6,2" VerticalOptions="Center">
+                                        <Border.GestureRecognizers>
+                                            <TapGestureRecognizer Tapped="OnJumpTapped"
+                                                                  CommandParameter="{Binding .}"/>
+                                        </Border.GestureRecognizers>
+                                        <Label Text="去聊天看" FontSize="12" TextColor="#B9D5C4"/>
+                                    </Border>
+                                    <Border BackgroundColor="Transparent" StrokeThickness="0"
+                                            Padding="6,2" VerticalOptions="Center">
+                                        <Border.GestureRecognizers>
+                                            <TapGestureRecognizer Tapped="OnCopyTapped"
+                                                                  CommandParameter="{Binding .}"/>
+                                        </Border.GestureRecognizers>
+                                        <Label Text="复制" FontSize="12" TextColor="#9E8D8C"/>
+                                    </Border>
+                                    <Border BackgroundColor="#2A2222" StrokeThickness="0"
+                                            StrokeShape="RoundRectangle 8"
+                                            Padding="8,3" VerticalOptions="Center">
+                                        <Border.GestureRecognizers>
+                                            <TapGestureRecognizer Tapped="OnUnfavoriteTapped"
+                                                                  CommandParameter="{Binding .}"/>
+                                        </Border.GestureRecognizers>
+                                        <Label Text="取消收藏" FontSize="12" TextColor="#F2B8B5"/>
+                                    </Border>
+                                </HorizontalStackLayout>
+                            </VerticalStackLayout>
+                        </Border>
+                    </Grid>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+    </Grid>
+</ContentPage>
