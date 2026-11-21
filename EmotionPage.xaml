@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="青阳AI.EmotionPage"
+             Title="这段时间"
+             BackgroundColor="#181211">
+
+    <Grid RowDefinitions="Auto,*">
+
+        <!-- 顶部标题栏 -->
+        <Grid Grid.Row="0" Padding="16,10" BackgroundColor="#181211" ColumnDefinitions="*,Auto">
+            <Label Text="这段时间"
+                   FontSize="18"
+                   FontAttributes="Bold"
+                   TextColor="White"
+                   VerticalOptions="Center"/>
+
+            <!-- 刷新：重新拉一次数据重绘曲线（右上角小按钮） -->
+            <Border Grid.Column="1"
+                    BackgroundColor="#241E1E"
+                    StrokeThickness="1"
+                    Stroke="#3A3231"
+                    StrokeShape="RoundRectangle 12"
+                    Padding="12,6"
+                    VerticalOptions="Center"
+                    StyleId="theme-stroke">
+                <Border.GestureRecognizers>
+                    <TapGestureRecognizer Tapped="OnRefreshTapped"/>
+                </Border.GestureRecognizers>
+                <Label Text="刷新" FontSize="12" TextColor="#C4B5FD" StyleId="theme"/>
+            </Border>
+        </Grid>
+
+        <ScrollView Grid.Row="1">
+            <VerticalStackLayout Padding="14,4,14,28" Spacing="14">
+
+                <!-- ══════════ 情绪曲线卡片 ══════════ -->
+                <Border BackgroundColor="#1F1A19"
+                        StrokeThickness="1"
+                        Stroke="#2B2524"
+                        StrokeShape="RoundRectangle 16"
+                        Padding="14,12">
+                    <VerticalStackLayout Spacing="8">
+
+                        <Label Text="心情曲线"
+                               FontSize="15"
+                               FontAttributes="Bold"
+                               TextColor="White"/>
+
+                        <!-- 概览：天数 / 平均分 / 最高 / 最低 -->
+                        <Label x:Name="lblSummary"
+                               Text="正在读取…"
+                               FontSize="12"
+                               TextColor="#9E8D8C"
+                               LineBreakMode="WordWrap"/>
+
+                        <!-- 手绘折线（GraphicsView + IDrawable，不引第三方图表库） -->
+                        <GraphicsView x:Name="chartView"
+                                      HeightRequest="210"
+                                      HorizontalOptions="Fill"/>
+
+                        <!-- 空态提示 -->
+                        <Label x:Name="lblEmpty"
+                               Text="还没有情绪记录。多和Ta聊聊，Ta会慢慢记住你的心情。"
+                               FontSize="12"
+                               TextColor="#7A6E6D"
+                               HorizontalOptions="Center"
+                               Margin="0,24,0,24"
+                               IsVisible="False"/>
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- ══════════ 每天明细 ══════════ -->
+                <Label Text="每天的心情"
+                       FontSize="14"
+                       FontAttributes="Bold"
+                       TextColor="#D5C2C1"
+                       Margin="2,4,0,0"/>
+
+                <VerticalStackLayout x:Name="dailyList" Spacing="8">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate>
+                            <Border BackgroundColor="#1F1A19"
+                                    StrokeThickness="1"
+                                    Stroke="#2B2524"
+                                    StrokeShape="RoundRectangle 12"
+                                    Padding="0">
+                                <Grid ColumnDefinitions="4,*,Auto" ColumnSpacing="10">
+                                    <!-- 左侧竖条：按当天平均分取色 -->
+                                    <BoxView Grid.Column="0" Color="{Binding ScoreColor}"/>
+
+                                    <VerticalStackLayout Grid.Column="1" Spacing="3" Padding="10,9">
+                                        <Label Text="{Binding DateText}"
+                                               FontSize="13.5"
+                                               FontAttributes="Bold"
+                                               TextColor="#EDEDED"/>
+                                        <Label Text="{Binding MoodsText}"
+                                               FontSize="12"
+                                               TextColor="#9E8D8C"
+                                               LineBreakMode="TailTruncation"/>
+                                    </VerticalStackLayout>
+
+                                    <Label Grid.Column="2"
+                                           Text="{Binding ScoreText}"
+                                           FontSize="15"
+                                           FontAttributes="Bold"
+                                           TextColor="{Binding ScoreColor}"
+                                           VerticalOptions="Center"
+                                           Padding="0,0,12,0"/>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </VerticalStackLayout>
+
+                <Label x:Name="lblDailyEmpty"
+                       Text=""
+                       FontSize="12"
+                       TextColor="#7A6E6D"
+                       HorizontalOptions="Center"
+                       IsVisible="False"/>
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+</ContentPage>
