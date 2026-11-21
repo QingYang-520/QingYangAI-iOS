@@ -1,0 +1,69 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>青阳AI</RootNamespace>
+    <AssemblyName>QingYangAI</AssemblyName>
+
+    <!-- iOS 项目：只保留 net10.0-ios 一个目标（由 QingYangAI 源项目复制而来） -->
+    <TargetFrameworks>net10.0-ios</TargetFrameworks>
+    <UseMaui>true</UseMaui>
+    <SingleProject>true</SingleProject>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+
+    <UseLongPaths>true</UseLongPaths>
+    <DefaultItemExcludes>$(DefaultItemExcludes);csproj\**</DefaultItemExcludes>
+
+    <ApplicationTitle>青阳AI</ApplicationTitle>
+    <!-- iOS Bundle ID（与 Android 的 com.qingyang.ai 区分，避免冲突） -->
+    <ApplicationId>com.qingyang.ai.ios</ApplicationId>
+    <!-- iOS/App Store 版本号要求纯三段数字（不能带 -rc3 后缀） -->
+    <ApplicationDisplayVersion>1.10.24</ApplicationDisplayVersion>
+    <ApplicationVersion>142</ApplicationVersion>
+
+    <!-- iOS 最低版本：JIT / AltJIT 需 iOS 14+ -->
+    <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">14.0</SupportedOSPlatformVersion>
+
+    <!--
+      使用 .NET 解释器：iOS 上 AOT 之外需解释器承载动态代码（与 JIT/AltJIT 场景配套）。
+      参考：https://learn.microsoft.com/dotnet/maui/macios/interpreter
+    -->
+    <UseInterpreter>true</UseInterpreter>
+
+    <!--
+      iOS 签名：默认不签名（供 GitHub Actions 用 ldid 做 TrollStore 伪签名）。
+      CodesignKey / CodesignProvision / Entitlements 都允许命令行覆盖。
+    -->
+    <CodesignKey Condition="'$(CodesignKey)' == ''">-</CodesignKey>
+    <CodesignProvision Condition="'$(CodesignProvision)' == ''"></CodesignProvision>
+    <CodesignEntitlements Condition="'$(CodesignEntitlements)' == ''">Platforms\iOS\TrollStore.entitlements</CodesignEntitlements>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Maui.Controls" Version="10.0.20" />
+    <PackageReference Include="sqlite-net-pcl" Version="1.9.172" />
+    <PackageReference Include="SQLitePCLRaw.bundle_green" Version="2.1.8" />
+  </ItemGroup>
+
+  <!--
+    Shizuku 绑定库（Android 专有）已从 iOS 项目移除。
+    iOS 侧以 JitService.cs 取代：检测 JIT、自动唤起外部工具获取、失败弹窗提示 AltJIT。
+    Shizuku.cs 全部逻辑包在 #if ANDROID 内，iOS 编译时自动排除，不会引用到绑定。
+  -->
+
+  <ItemGroup>
+    <MauiIcon Include="Resources\AppIcon\appicon.png" Color="#B0CDE4" />
+    <MauiImage Include="Resources\Images\*" />
+    <MauiAsset Include="Resources\Raw\ailogos\*.svg" />
+    <MauiFont Include="Resources\Fonts\*" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <MauiXaml Update="ChatPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </MauiXaml>
+    <Compile Update="ChatPage.xaml.cs">
+      <DependentUpon>ChatPage.xaml</DependentUpon>
+    </Compile>
+  </ItemGroup>
+</Project>
