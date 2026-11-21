@@ -1,18 +1,15 @@
-name: 打包 iOS IPA（巨魔/TrollStore 版）
+﻿name: 鎵撳寘 iOS IPA锛堝法榄?TrollStore 鐗堬級
 
-# 触发方式：
-#   1. 手动：GitHub 网页 Actions → 选本工作流 → Run workflow
-#   2. push 到 main 且改动了源码（可选）
-# 说明：本工作流产出 Ad-Hoc / 伪签名的 IPA，供 TrollStore（巨魔）侧载安装。
-#       TrollStore 安装的 App 自带 get-task-allow → 天然具备 JIT 权限。
-
+# 瑙﹀彂鏂瑰紡锛?#   1. 鎵嬪姩锛欸itHub 缃戦〉 Actions 鈫?閫夋湰宸ヤ綔娴?鈫?Run workflow
+#   2. push 鍒?main 涓旀敼鍔ㄤ簡婧愮爜锛堝彲閫夛級
+# 璇存槑锛氭湰宸ヤ綔娴佷骇鍑?Ad-Hoc / 浼鍚嶇殑 IPA锛屼緵 TrollStore锛堝法榄旓級渚ц浇瀹夎銆?#       TrollStore 瀹夎鐨?App 鑷甫 get-task-allow 鈫?澶╃劧鍏峰 JIT 鏉冮檺銆?
 on:
   workflow_dispatch:
     inputs:
       ipa_name:
-        description: '产出 IPA 的文件名（放 Z 盘根目录用）'
+        description: '浜у嚭 IPA 鐨勬枃浠跺悕锛堟斁 Z 鐩樻牴鐩綍鐢級'
         required: false
-        default: '青阳AI-1.10.24.ipa'
+        default: '闈掗槼AI-1.10.24.ipa'
   push:
     branches: [ main ]
     paths:
@@ -29,48 +26,46 @@ env:
 
 jobs:
   build-ios:
-    runs-on: macos-14        # Apple Silicon Mac，自带 Xcode，能编 ios-arm64
+    runs-on: macos-latest        # Apple Silicon Mac锛岃嚜甯?Xcode锛岃兘缂?ios-arm64
     timeout-minutes: 60
 
     steps:
-      - name: 检出源码
-        uses: actions/checkout@v4
+      - name: 妫€鍑烘簮鐮?        uses: actions/checkout@v4
 
-      - name: 安装 .NET 10 SDK
+      - name: 瀹夎 .NET 10 SDK
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
 
-      - name: 安装 MAUI iOS 工作负载
+      - name: 瀹夎 MAUI iOS 宸ヤ綔璐熻浇
         run: |
           dotnet workload install maui-ios --skip-sign-check
 
-      - name: 选择 Xcode
+      - name: 閫夋嫨 Xcode
         run: sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
 
-      - name: 显示环境
+      - name: 鏄剧ず鐜
         run: |
           dotnet --version
           xcodebuild -version
 
-      # ---- 注入登录 API 令牌（明文不进仓库，CI 从 Secret 读取）----
-      - name: 注入登录 API 令牌
+      # ---- 娉ㄥ叆鐧诲綍 API 浠ょ墝锛堟槑鏂囦笉杩涗粨搴擄紝CI 浠?Secret 璇诲彇锛?---
+      - name: 娉ㄥ叆鐧诲綍 API 浠ょ墝
         env:
           LOGIN_API_TOKEN: ${{ secrets.LOGIN_API_TOKEN }}
         run: |
           if [ -n "$LOGIN_API_TOKEN" ]; then
             python3 inject_token.py "$LOGIN_API_TOKEN"
           else
-            echo "LOGIN_API_TOKEN 未配置：产出 IPA 的登录功能需在 App 内手填令牌"
+            echo "LOGIN_API_TOKEN 鏈厤缃細浜у嚭 IPA 鐨勭櫥褰曞姛鑳介渶鍦?App 鍐呮墜濉护鐗?
           fi
 
-      # ---- 编译并产出 IPA ----
-      # Ad-Hoc 免开发者账号签名：
-      #   CODE_SIGNING_ALLOWED=NO 只编译不签名 → 生成 .app
-      #   再用 ldid 伪签名（TrollStore 标准做法）→ 打成可安装的 IPA
-      - name: 编译 iOS App（不签名）
-        run: |
-          dotnet publish 青阳AI.csproj \
+      # ---- 缂栬瘧骞朵骇鍑?IPA ----
+      # Ad-Hoc 鍏嶅紑鍙戣€呰处鍙风鍚嶏細
+      #   CODE_SIGNING_ALLOWED=NO 鍙紪璇戜笉绛惧悕 鈫?鐢熸垚 .app
+      #   鍐嶇敤 ldid 浼鍚嶏紙TrollStore 鏍囧噯鍋氭硶锛夆啋 鎵撴垚鍙畨瑁呯殑 IPA
+      - name: 缂栬瘧 iOS App锛堜笉绛惧悕锛?        run: |
+          dotnet publish 闈掗槼AI.csproj \
             -f net10.0-ios \
             -c Release \
             -p:RuntimeIdentifier=ios-arm64 \
@@ -80,40 +75,39 @@ jobs:
             -p:CODE_SIGNING_ALLOWED=NO \
             -p:UseInterpreter=true
 
-      - name: 安装 ldid（巨魔签名工具）
+      - name: 瀹夎 ldid锛堝法榄旂鍚嶅伐鍏凤級
         run: brew install ldid
 
-      - name: 伪签名 + 打 IPA（TrollStore 可用）
-        run: |
+      - name: 浼鍚?+ 鎵?IPA锛圱rollStore 鍙敤锛?        run: |
           set -euo pipefail
           APP="$(find bin/Release/net10.0-ios/ios-arm64/publish -maxdepth 1 -name '*.app' -type d | head -1)"
           echo "APP=$APP"
 
-          # 给 Mach-O 主执行文件打上 get-task-allow（JIT 权限）等 entitlements
+          # 缁?Mach-O 涓绘墽琛屾枃浠舵墦涓?get-task-allow锛圝IT 鏉冮檺锛夌瓑 entitlements
           BIN="$APP/QingYangAI"
           if [ -f "$BIN" ]; then
             ldid -SPlatforms/iOS/TrollStore.entitlements "$BIN"
           fi
 
-          # 也签一下 Frameworks / dylib（若有）
+          # 涔熺涓€涓?Frameworks / dylib锛堣嫢鏈夛級
           find "$APP" -type f \( -name '*.dylib' -o -name '*.framework' \) -print0 2>/dev/null | while IFS= read -r -d '' f; do
             ldid -SPlatforms/iOS/TrollStore.entitlements "$f" 2>/dev/null || true
           done
 
-          # 打成 IPA（标准结构：Payload/xxx.app）
-          rm -rf Payload
+          # 鎵撴垚 IPA锛堟爣鍑嗙粨鏋勶細Payload/xxx.app锛?          rm -rf Payload
           mkdir -p Payload
           cp -R "$APP" Payload/
           zip -qry app.ipa Payload
-          IPA_NAME="${{ github.event.inputs.ipa_name || '青阳AI-1.10.24.ipa' }}"
+          IPA_NAME="${{ github.event.inputs.ipa_name || '闈掗槼AI-1.10.24.ipa' }}"
           mv app.ipa "$IPA_NAME"
           echo "IPA_PATH=$IPA_NAME" >> $GITHUB_ENV
           ls -lh "$IPA_NAME"
 
-      - name: 上传 IPA 为 Artifact
+      - name: 涓婁紶 IPA 涓?Artifact
         uses: actions/upload-artifact@v4
         with:
           name: qingyang-ios-ipa
           path: ${{ env.IPA_PATH }}
           if-no-files-found: error
           retention-days: 90
+
