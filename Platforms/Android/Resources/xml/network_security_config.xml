@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  网络安全配置。
+  Android 9+ 默认禁止 cleartext（明文 HTTP）。本地大模型服务（Ollama / LM Studio /
+  llama.cpp server / vLLM）默认跑 http://，且地址是用户自己填的局域网 IP（如 192.168.x.x），
+  无法用 domain 规则精确穷举。
+  这里的取舍：base-config 允许明文（否则本地模型根本连不上），
+  但**代码层做校验**（AppSettings 只接受 http/https、且仅本地模型走明文）。
+  云端接口本来就是 https，不受影响。
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>
