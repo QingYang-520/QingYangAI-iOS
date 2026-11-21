@@ -1,0 +1,685 @@
+﻿<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:local="clr-namespace:青阳AI"
+             x:Class="青阳AI.ChatPage"
+             Title="青阳AI">
+    <!-- 常驻统计：本次 usage / 全局累计，数据源 UsageStats.Current -->
+
+    <ContentPage.Background>
+        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+            <GradientStop Color="#16161E" Offset="0.0"/>
+            <GradientStop Color="#1A1A26" Offset="0.5"/>
+            <GradientStop Color="#141420" Offset="1.0"/>
+        </LinearGradientBrush>
+    </ContentPage.Background>
+
+    <Grid>
+        <!-- Ta 的隐藏浏览器：给 AI 当"手"用（跑 JS / 点按钮 / 填表单 / 翻页）。
+             2×2 塞在最底层、被标题栏盖住 —— 用户看不见也点不到；
+             但必须在可视树里、尺寸非 0，Android WebView 才拿得到 handler 和渲染上下文。 -->
+        <WebView x:Name="agentWeb"
+                 WidthRequest="2" HeightRequest="2"
+                 Opacity="0.01"
+                 InputTransparent="True"
+                 HorizontalOptions="Start" VerticalOptions="Start"/>
+
+        <!-- 消息列表（启动时隐藏，等历史加载完定位到底部后再显示）。
+             上下边距由 ChatPage.xaml.cs 的 ApplyListInsets 按标题栏 / 输入栏实测高度动态设置，
+             XAML 里先给一个保守初值，避免首帧被盖住：
+             顶部 58 ≈ 标题栏高 + 呼吸空间；底部 76 ≈ 输入栏高 + 底边距 + 呼吸空间 -->
+<CollectionView x:Name="msgList" Margin="0,58,0,76"
+                    IsVisible="False"
+                    ItemsSource="{Binding Messages}">
+            <CollectionView.ItemTemplate>
+                <DataTemplate>
+                    <Grid Padding="10,8">
+
+                <!-- AI气泡 靠左 + 尖角，宽度随内容自适应
+                     注意：2026-10-24：Agent 循环开启时，执行过程不走这个气泡（见下方"无气泡执行区"）；
+                        只有产出最终答复 / 出错 / 还没开始执行时，才用这个圆角壳。 -->
+                <VerticalStackLayout HorizontalOptions="Start" IsVisible="{Binding IsAI}" Spacing="6">
+
+                    <!-- ── 无气泡执行区：Agent 每一步就是一行，执行中展开、完成后收起 ── -->
+                    <VerticalStackLayout IsVisible="{Binding HasAgentRun}" Spacing="2" Margin="10,4,10,0"
+                                         MaximumWidthRequest="330">
+                        <Grid ColumnDefinitions="*,Auto" Padding="2,0">
+                            <Grid.GestureRecognizers>
+                                <TapGestureRecognizer Tapped="OnAgentHeaderTapped"/>
+                            </Grid.GestureRecognizers>
+                            <!-- 标题：运行中流光，结束后静态 -->
+                            <local:ShimmerLabel Grid.Column="0"
+                                   Text="{Binding AgentHeaderText}"
+                                   TextColor="#9FB8D5"
+                                   HighlightColor="#DCEBFF"
+                                   StyleId="theme-bubble-meta"
+                                   IsActive="{Binding AgentRunning}"
+                                   FontSize="13"
+                                   MaxLines="1"
+                                   LineBreakMode="TailTruncation"
+                                   VerticalOptions="Center"/>
+                        </Grid>
+                        <!-- 步骤明细：执行中自动展开（一行一步），完成后自动收起 -->
+                        <Label Text="{Binding AgentStepsText}"
+                               TextColor="#8FA6C0"
+                               StyleId="theme-bubble-meta"
+                               FontSize="12"
+                               LineBreakMode="WordWrap"
+                               IsVisible="{Binding AgentDetailsVisible}"/>
+                    </VerticalStackLayout>
+
+                    <!-- ── 圆角气泡壳：Agent 模式下仅在有最终答复时出现 ── -->
+                    <Grid IsVisible="{Binding ShowAiBubbleShell}" MaximumWidthRequest="300">
+                        <Border BackgroundColor="{DynamicResource BubbleAIColor}"
+                                StrokeThickness="0"
+                                StrokeShape="RoundRectangle 18"
+                                Padding="16,12"
+                                Margin="10,4">
+                            <Border.Shadow>
+                                <Shadow Brush="#000000" Opacity="0.28" Radius="16" Offset="0,4"/>
+                            </Border.Shadow>
+                            <Border.GestureRecognizers>
+                                <PointerGestureRecognizer PointerPressed="OnMsgPointerPressed" PointerReleased="OnMsgPointerReleased"/>
+                            </Border.GestureRecognizers>
+                                <VerticalStackLayout Spacing="8">
+
+                                    <!-- 思考过程折叠区域 -->
+                                    <VerticalStackLayout IsVisible="{Binding HasThinking}" Spacing="2">
+                                        <!-- 可点击头部：三角 + 状态文字 -->
+                                        <Grid ColumnDefinitions="Auto,*" Padding="2,0">
+                                            <Grid.GestureRecognizers>
+                                                <TapGestureRecognizer Tapped="OnThinkingHeaderTapped"/>
+                                            </Grid.GestureRecognizers>
+                                            <local:MorphIcon Icon="{Binding ThinkingArrow}"
+                                                             IconColor="#D5C2C1"
+                                                             IconSize="14"
+                                                             StrokeWidth="2.5"
+                                                             VerticalOptions="Center"/>
+                                            <Label Grid.Column="1"
+                                                   Text="{Binding ThinkingStatusText}"
+                                                   TextColor="#D5C2C1"
+                                                   StyleId="theme-bubble-meta"
+                                                   FontSize="13"
+                                                   VerticalOptions="Center"
+                                                   Margin="4,0,0,0"/>
+                                        </Grid>
+                                        <!-- 思考过程完整文本（展开时显示；用普通 Label 保证逐字实时显示，避免流光 shader 干扰渲染） -->
+                                        <Label Text="{Binding Thinking}"
+                                               TextColor="#D5C2C1"
+                                               StyleId="theme-bubble-meta"
+                                               FontSize="13"
+                                               LineBreakMode="WordWrap"
+                                               IsVisible="{Binding ThinkingExpanded}"/>
+                                    </VerticalStackLayout>
+
+                                    <!-- 内嵌分割线：有思考过程且其后有内容（终端或正文）时显示 -->
+                                    <BoxView HeightRequest="1"
+                                             Color="#524342"
+                                             Margin="0,4"
+                                             IsVisible="{Binding ShowThinkingDivider}"/>
+
+                                    <!-- Agent 过程区已移到气泡外（无气泡执行区），此处不再重复渲染 -->
+
+                                    <!-- 等待回应指示器：还没收到任何内容时显示（思考过程或正文，任一到达即隐藏） -->
+                                    <HorizontalStackLayout IsVisible="{Binding IsWaiting}" Spacing="8" Margin="0,2,0,2">
+                                        <!-- 点阵加载动画（原来是 ActivityIndicator 转圈） -->
+                                        <local:DotMotionLoader WidthRequest="22" HeightRequest="22"
+                                                               VerticalOptions="Center"/>
+                                        <Label Text="等待服务器响应…" TextColor="#D5C2C1" StyleId="theme-bubble-meta" FontSize="13" VerticalOptions="Center"/>
+                                    </HorizontalStackLayout>
+
+                                    <!-- 终端头部三行小气泡（纯黑背景，包在正文上方，文字深绿）
+                                         注意：2026-10-24：只有 Agent 循环**关闭**时才显示（绑 ShowTerminalHeader）。
+                                         Agent 开启时执行过程改用无气泡的步骤行，不再出现这个黑框。 -->
+                                    <Border BackgroundColor="#000000"
+                                            StrokeThickness="0"
+                                            StrokeShape="RoundRectangle 8"
+                                            Padding="10,6"
+                                            IsVisible="{Binding ShowTerminalHeader}">
+                                        <VerticalStackLayout Spacing="1">
+                                            <!-- 最上面单独一行：纯白 >_（字号比正文大2号） -->
+                                            <Label Text=">_" 
+                                                   TextColor="White" 
+                                                   StyleId="theme-bubble-meta"
+                                                   FontAttributes="Bold"
+                                                   FontSize="13"/>
+                                            <!-- 标题：使用shizuku — 终端 -->
+                                            <Label Text="{Binding TerminalTitleLine}"
+                                                   TextColor="#2E7D32"
+                                                   StyleId="theme-bubble-meta"
+                                                   FontSize="11"/>
+                                            <!-- 当前步骤（运行中流光，深绿提升为偏白绿高光） -->
+                                            <local:ShimmerLabel Text="{Binding TerminalStepLine}"
+                                                   TextColor="#2E7D32"
+                                                   HighlightColor="#B8FFC4"
+                                                   StyleId="theme-bubble-meta"
+                                                   IsActive="{Binding IsTerminalRunning}"
+                                                   FontSize="11"/>
+                                            <!-- 输出 -->
+                                            <Label Text="{Binding TerminalOutputLine}"
+                                                   TextColor="#2E7D32"
+                                                   StyleId="theme-bubble-meta"
+                                                   FontSize="11"
+                                                   LineBreakMode="WordWrap"/>
+                                        </VerticalStackLayout>
+                                    </Border>
+
+                                    <!-- 正文（普通文本，无流光）。
+                                         绑 DisplayContent 而不是 Content —— 打字机靠它逐字上屏；
+                                         Content 始终是完整文本（存库/给模型/朗读都用它）。
+                                         文字色用 BubbleAITextColor：AI 气泡固定不跟主题色，只改用户自己的气泡。 -->
+                                    <Label Text="{Binding DisplayContent}"
+                                           TextColor="{DynamicResource BubbleAITextColor}"
+                                           FontSize="16"
+                                           LineBreakMode="WordWrap"/>
+
+                                    <!-- 错误行：**单独一块**，不跟正文混在一起（也不覆盖正文） -->
+                                    <Border IsVisible="{Binding HasError}"
+                                            BackgroundColor="#33B0413E"
+                                            StrokeThickness="0"
+                                            StrokeShape="RoundRectangle 8"
+                                            Padding="10,7">
+                                        <Label Text="{Binding ErrorText}"
+                                               TextColor="#F2B8B5"
+                                               StyleId="theme-bubble-meta"
+                                               FontSize="12"
+                                               LineBreakMode="WordWrap"/>
+                                    </Border>
+
+                                    <!-- 时间戳：打 theme-bubble-meta 让气泡整体换字色时跳过（保留自己的弱化灰） -->
+                                    <Label Text="{Binding TimeText}" TextColor="#9E8D8C" StyleId="theme-bubble-meta"
+                                           FontSize="11" HorizontalOptions="Start" Margin="0,2,0,0"/>
+
+                                    <!-- 朗读按钮：点击重播该条回复的语音 -->
+                                    <HorizontalStackLayout Spacing="4"
+                                                           IsVisible="{Binding HasContent}">
+                                        <HorizontalStackLayout.GestureRecognizers>
+                                            <TapGestureRecognizer Tapped="OnSpeakTapped"/>
+                                        </HorizontalStackLayout.GestureRecognizers>
+                                        <local:MorphIcon Icon="Speaker" IconSize="13" IconColor="#D5C2C1" StrokeWidth="2"/>
+                                        <Label Text="朗读" TextColor="#D5C2C1" StyleId="theme-bubble-meta"
+                                               FontSize="12" VerticalOptions="Center"/>
+                                    </HorizontalStackLayout>
+
+                                    <!-- AI 生成的图片框架：预加载 → 完成后填充。
+                                         用 ShowImageFrame 而不是 HasImage —— 失败时图是空的，
+                                         用 HasImage 会把整个框（含错误提示）一起藏起来。 -->
+                                    <Border IsVisible="{Binding ShowImageFrame}"
+                                            BackgroundColor="#3A3333"
+                                            StrokeThickness="0"
+                                            StrokeShape="RoundRectangle 10"
+                                            Padding="4">
+                                        <Border.GestureRecognizers>
+                                            <TapGestureRecognizer Tapped="OnImageFrameTapped"/>
+                                        </Border.GestureRecognizers>
+                                        <Grid HeightRequest="200">
+                                            <!-- ① 中间预览帧：只有支持实时预览的后端才会往这儿塞
+                                                   （ComfyUI websocket / SD-WebUI 轮询 / OpenAI partial_images） -->
+                                            <Image Source="{Binding PreviewSource}"
+                                                   Aspect="AspectFit"
+                                                   IsVisible="{Binding HasPreview}"
+                                                   HorizontalOptions="Fill"
+                                                   VerticalOptions="Fill"/>
+
+                                            <!-- ② 生成中浮层：转圈 + 进度行（后端没返回进度就只显示转圈） -->
+                                            <Border IsVisible="{Binding IsImageLoading}"
+                                                    BackgroundColor="#B3000000"
+                                                    StrokeThickness="0"
+                                                    StrokeShape="RoundRectangle 12"
+                                                    Padding="14,10"
+                                                    HorizontalOptions="Center"
+                                                    VerticalOptions="Center">
+                                                <VerticalStackLayout Spacing="7">
+                                                    <ActivityIndicator IsRunning="{Binding IsImageLoading}"
+                                                                       Color="#FBB5B2" StyleId="theme"
+                                                                       HorizontalOptions="Center"/>
+                                                    <!-- 进度：后端返回了才有这一行 -->
+                                                    <Label Text="{Binding ImageProgressNote}"
+                                                           IsVisible="{Binding ShowImageProgress}"
+                                                           TextColor="#FBB5B2" StyleId="theme"
+                                                           FontSize="13"
+                                                           HorizontalOptions="Center"/>
+                                                    <!-- 后端明确不给预览时的小字提示 -->
+                                                    <Label Text="当前模型不支持实时预览"
+                                                           IsVisible="{Binding ShowNoPreviewHint}"
+                                                           TextColor="#9E8D8C"
+                                                           FontSize="11"
+                                                           HorizontalOptions="Center"/>
+                                                </VerticalStackLayout>
+                                            </Border>
+
+                                            <!-- ③ 失败 -->
+                                            <Label Text="图片生成失败"
+                                                   TextColor="#F2B8B5"
+                                                   FontSize="13"
+                                                   IsVisible="{Binding IsImageError}"
+                                                   HorizontalOptions="Center"
+                                                   VerticalOptions="Center"/>
+                                            <!-- ④ 完成后的成品图 -->
+                                            <Image Source="{Binding ImageSource}"
+                                                   Aspect="AspectFit"
+                                                   IsVisible="{Binding IsImageDone}"
+                                                   HorizontalOptions="Fill"
+                                                   VerticalOptions="Fill"/>
+                                        </Grid>
+                                    </Border>
+                                </VerticalStackLayout>
+                            </Border>
+                            <!-- AI 气泡的尖角：颜色要跟气泡底色一致，否则亮底配暗尖角很突兀 -->
+                            <BoxView WidthRequest="12"
+                                     HeightRequest="12"
+                                     Rotation="45"
+                                     Color="{DynamicResource BubbleAIColor}"
+                                     HorizontalOptions="Start"
+                                     VerticalOptions="Start"
+                                     TranslationX="-8"
+                                     TranslationY="14"/>
+                    </Grid>
+                </VerticalStackLayout>
+
+                        <!-- 用户气泡 靠右，无尖角，宽度随内容自适应 -->
+                        <Grid HorizontalOptions="End"
+                              IsVisible="{Binding IsUser}"
+                              MaximumWidthRequest="300">
+                            <Border BackgroundColor="{DynamicResource BubbleUserColor}"
+                                    StrokeThickness="0"
+                                    StrokeShape="RoundRectangle 18"
+                                    Padding="16,12"
+                                    Margin="4,10">
+                                <Border.Shadow>
+                                    <Shadow Brush="#000000" Opacity="0.28" Radius="16" Offset="0,4"/>
+                                </Border.Shadow>
+                                <Border.GestureRecognizers>
+                                    <PointerGestureRecognizer PointerPressed="OnMsgPointerPressed" PointerReleased="OnMsgPointerReleased"/>
+                                </Border.GestureRecognizers>
+                                <VerticalStackLayout Spacing="6">
+                                    <!-- 用户发送的图片 -->
+                                    <Image Source="{Binding ImageSource}"
+                                           Aspect="AspectFit"
+                                           IsVisible="{Binding HasImage}"
+                                           HeightRequest="180"
+                                           HorizontalOptions="Fill"/>
+                                    <Label Text="{Binding Content}"
+                                           TextColor="{DynamicResource BubbleTextColor}"
+                                           FontSize="16"
+                                           LineBreakMode="WordWrap"/>
+
+                                    <!-- 时间戳：打 theme-bubble-meta 标记，让气泡整体换字色时跳过它，
+                                         保留自己的半透明灰，不跟着正文一起变 -->
+                                    <Label Text="{Binding TimeText}" TextColor="#D0D0E0" StyleId="theme-bubble-meta"
+                                           FontSize="11" HorizontalOptions="End" Margin="0,4,0,0"/>
+                                </VerticalStackLayout>
+                            </Border>
+                        </Grid>
+                    </Grid>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+
+        <!-- 空状态：无聊天记录时居中显示随机语句（灰色大字，每次打开应用重新抽取） -->
+        <VerticalStackLayout x:Name="emptyState" VerticalOptions="Center" HorizontalOptions="Center"
+                             InputTransparent="True" IsVisible="False">
+            <Label x:Name="emptyMotto" HorizontalOptions="Center"
+                   TextColor="#D5C2C1" FontAttributes="Bold"/>
+        </VerticalStackLayout>
+
+        <!-- 顶部标题栏：头像+标题+心情 | 推理+上下文+缓存+菜单+日记+设置 -->
+        <Grid x:Name="titleBar" VerticalOptions="Start" ColumnDefinitions="*,Auto" Padding="14,10"
+              BackgroundColor="#181211">
+            <HorizontalStackLayout Grid.Column="0" Spacing="8" VerticalOptions="Center" HorizontalOptions="Start">
+                <Border x:Name="avatarBorder"
+                        WidthRequest="30" HeightRequest="30"
+                        StrokeThickness="0" BackgroundColor="#2F2928"
+                        StrokeShape="RoundRectangle 15" VerticalOptions="Center">
+                    <Image x:Name="imgAvatar" Aspect="AspectFill"/>
+                </Border>
+                <Label x:Name="lblTitle" Text="青阳AI"
+                       FontSize="18" FontAttributes="Bold"
+                       TextColor="White" VerticalOptions="Center"/>
+                <!-- 心情圆点：用颜色表示心情（不再用 emoji 表情），没有心情时隐藏 -->
+                <Border x:Name="moodDot" IsVisible="False"
+                        WidthRequest="8" HeightRequest="8"
+                        StrokeThickness="0"
+                        BackgroundColor="#B388FF"
+                        VerticalOptions="Center">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="4"/>
+                    </Border.StrokeShape>
+                </Border>
+                <Label x:Name="lblMood" Text=""
+                       FontSize="13" TextColor="#D5C2C1" VerticalOptions="Center"/>
+            </HorizontalStackLayout>
+
+            <HorizontalStackLayout Grid.Column="1" Spacing="6" VerticalOptions="Center" HorizontalOptions="End">
+                <!-- 权限盾牌已移到下方输入栏（跟麦克风/图片放一起），此处不再重复 -->
+                <!-- 推理等级 -->
+                <Border x:Name="reasonChip" BackgroundColor="#2F2928" StrokeThickness="0"
+                        StrokeShape="RoundRectangle 12" Padding="8,4"
+                        VerticalOptions="Center" IsVisible="False">
+                    <Border.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnReasoningChipTapped"/>
+                    </Border.GestureRecognizers>
+                    <Label x:Name="reasonLbl" Text="思考:关"
+                           TextColor="#FBB5B2" StyleId="theme" FontSize="12" VerticalOptions="Center"/>
+                </Border>
+                <!-- 上下文（发消息后由 UsageStats 刷新） -->
+                <Label x:Name="lblCtx" Text="上下文" FontSize="11"
+                       TextColor="#9E8D8C" VerticalOptions="Center"/>
+                <!-- 缓存命中率（发消息后由 usage 刷新） -->
+                <Label x:Name="lblCacheHit" Text="缓存命中" FontSize="11"
+                       TextColor="#9E8D8C" VerticalOptions="Center"/>
+                <!-- 搜索聊天记录（去 emoji 项目：用 MorphIcon 的 Search 图标） -->
+                <Border BackgroundColor="Transparent" StrokeThickness="0"
+                        Padding="4,2" VerticalOptions="Center">
+                    <Border.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnSearchClicked"/>
+                    </Border.GestureRecognizers>
+                    <local:MorphIcon Icon="Search" IconSize="18"
+                                     IconColor="#D5C2C1" StrokeWidth="2"/>
+                </Border>
+                <!-- 日记 -->
+                <Border BackgroundColor="Transparent" StrokeThickness="0"
+                        Padding="4,2" VerticalOptions="Center">
+                    <Border.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnDiaryClicked"/>
+                    </Border.GestureRecognizers>
+                    <local:MorphIcon Icon="Book" IconSize="18"
+                                     IconColor="#D5C2C1" StrokeWidth="2"/>
+                </Border>
+                <!-- 设置 -->
+                <Border BackgroundColor="Transparent" StrokeThickness="0"
+                        Padding="4,2" VerticalOptions="Center">
+                    <Border.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnSettingsClicked"/>
+                    </Border.GestureRecognizers>
+                    <local:MorphIcon Icon="Settings" IconSize="18"
+                                     IconColor="#D5C2C1" StrokeWidth="2"/>
+                </Border>
+            </HorizontalStackLayout>
+        </Grid>
+
+        <!-- 权限面板已并入三条杠菜单的主气泡（panePerm）——点次气泡直接在主气泡里展开，
+             与「选择模型」「发送图片」保持一致；此处不再有独立浮动面板。 -->
+
+        <!-- ══════════ 三条杠功能菜单 ══════════
+             点输入栏最右的 ≡ 弹出。结构：中间一个「主气泡」，各功能作为「次气泡」
+             横向挂在主气泡左侧；点某个次气泡会在主气泡右侧展开它的具体面板。
+             注意：整层是 Grid，用 InputTransparent 让空白处的点击穿透到下面的页面（点空白收起菜单） -->
+        <Grid x:Name="menuLayer" IsVisible="False"
+              HorizontalOptions="Fill" VerticalOptions="Fill">
+            <!-- 遮罩：吃掉点击并收起菜单（不挡视觉，只做点击拦截） -->
+            <BoxView Color="Transparent">
+                <BoxView.GestureRecognizers>
+                    <TapGestureRecognizer Tapped="OnMenuBackdropTapped"/>
+                </BoxView.GestureRecognizers>
+            </BoxView>
+
+            <!-- 主气泡 + 左侧次气泡列（整体贴在输入栏上方） -->
+            <Grid x:Name="menuRoot" VerticalOptions="End" HorizontalOptions="Fill"
+                  Margin="12,0,12,76" ColumnSpacing="8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- 次气泡列：每个功能一个 -->
+                <VerticalStackLayout x:Name="subBubbleCol" Grid.Column="0" Spacing="6"
+                                     VerticalOptions="Center">
+                    <Border x:Name="subModel" BackgroundColor="#241E1E" StrokeThickness="1" Stroke="#3A3A4A"
+                            StrokeShape="RoundRectangle 10" Padding="10,7" WidthRequest="150">
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer Tapped="OnSubModelTapped"/>
+                        </Border.GestureRecognizers>
+                        <VerticalStackLayout Spacing="1">
+                            <Label Text="选择模型" TextColor="White" FontSize="13" FontAttributes="Bold"/>
+                            <Label x:Name="lblSubModelHint" Text="API 模型" TextColor="#9E8D8C" FontSize="10.5"
+                                   LineBreakMode="TailTruncation"/>
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <!-- 推理强度：模型没返回推理能力时整块隐藏 -->
+                    <Border x:Name="subReason" BackgroundColor="#241E1E" StrokeThickness="1" Stroke="#3A3A4A"
+                            StrokeShape="RoundRectangle 10" Padding="10,7" WidthRequest="150" IsVisible="False">
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer Tapped="OnSubReasonTapped"/>
+                        </Border.GestureRecognizers>
+                        <VerticalStackLayout Spacing="1">
+                            <Label Text="推理强度" TextColor="White" FontSize="13" FontAttributes="Bold"/>
+                            <Label x:Name="lblSubReasonHint" Text="关" TextColor="#9E8D8C" FontSize="10.5"
+                                   LineBreakMode="TailTruncation"/>
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <Border x:Name="subPerm" BackgroundColor="#241E1E" StrokeThickness="1" Stroke="#3A3A4A"
+                            StrokeShape="RoundRectangle 10" Padding="10,7" WidthRequest="150">
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer Tapped="OnSubPermTapped"/>
+                        </Border.GestureRecognizers>
+                        <VerticalStackLayout Spacing="1">
+                            <Label Text="文件访问权限" TextColor="White" FontSize="13" FontAttributes="Bold"/>
+                            <Label x:Name="lblSubPermHint" Text="未授权" TextColor="#9E8D8C" FontSize="10.5"
+                                   LineBreakMode="TailTruncation"/>
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <Border x:Name="subImage" BackgroundColor="#241E1E" StrokeThickness="1" Stroke="#3A3A4A"
+                            StrokeShape="RoundRectangle 10" Padding="10,7" WidthRequest="150">
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer Tapped="OnSubImageTapped"/>
+                        </Border.GestureRecognizers>
+                        <VerticalStackLayout Spacing="1">
+                            <Label Text="发送图片" TextColor="White" FontSize="13" FontAttributes="Bold"/>
+                            <Label Text="从相册选择" TextColor="#9E8D8C" FontSize="10.5"/>
+                        </VerticalStackLayout>
+                    </Border>
+                </VerticalStackLayout>
+
+                <!-- 主气泡：显示标题 + 当前分组的内容面板 -->
+                <Border Grid.Column="1" x:Name="mainBubble"
+                        BackgroundColor="#181211" StrokeThickness="1" Stroke="#3A3A4A"
+                        StrokeShape="RoundRectangle 14" Padding="12,10"
+                        VerticalOptions="Center" HorizontalOptions="End">
+                    <VerticalStackLayout Spacing="8">
+                        <Label x:Name="lblMenuTitle" Text="功能菜单" TextColor="White"
+                               FontSize="14" FontAttributes="Bold"/>
+
+                        <!-- ① 选择模型面板 -->
+                        <VerticalStackLayout x:Name="paneModel" Spacing="6" IsVisible="False">
+                            <Label Text="API 模型" FontSize="11" TextColor="#9E8D8C"/>
+                            <VerticalStackLayout x:Name="apiModelList" Spacing="4"/>
+                            <!-- 本地模型分组：没有启用的本地模型时整块隐藏 -->
+                            <VerticalStackLayout x:Name="localModelGroup" Spacing="4" IsVisible="False">
+                                <Label Text="本地模型" FontSize="11" TextColor="#9E8D8C"/>
+                                <VerticalStackLayout x:Name="localModelList" Spacing="4"/>
+                            </VerticalStackLayout>
+                            <Label x:Name="lblModelEmpty" Text="还没有模型列表，去设置页点「获取模型列表」"
+                                   FontSize="11" TextColor="#9E8D8C" LineBreakMode="WordWrap" IsVisible="False"/>
+                        </VerticalStackLayout>
+
+                        <!-- ② 推理强度面板 -->
+                        <VerticalStackLayout x:Name="paneReason" Spacing="6" IsVisible="False">
+                            <VerticalStackLayout x:Name="reasonList" Spacing="4"/>
+                        </VerticalStackLayout>
+
+                        <!-- ③ 文件访问权限面板：与「选择模型」「发送图片」同一套显示逻辑
+                             —— 点次气泡 → 在主气泡里展开内容（不再弹独立浮动面板） -->
+                        <VerticalStackLayout x:Name="panePerm" Spacing="6" IsVisible="False">
+                            <Label Text="四选一，下面的可单独勾选" FontSize="10.5" TextColor="#9E8D8C"/>
+
+                            <!-- 上四行：互斥单选 -->
+                            <VerticalStackLayout x:Name="permSingleGroup" Spacing="5">
+
+                                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="6">
+                                    <local:MorphIcon x:Name="icoReadWs" Icon="File" IconSize="12" IconColor="#D5C2C1" StrokeWidth="1.5" VerticalOptions="Center"/>
+                                    <Label Grid.Column="1" Text="仅读取工作区文件" TextColor="#D5C2C1" FontSize="11.5" VerticalOptions="Center"/>
+                                    <Label x:Name="chkReadWs" Grid.Column="2" Text="○" TextColor="#B388FF" StyleId="theme" FontSize="12" VerticalOptions="Center"/>
+                                    <Grid.GestureRecognizers>
+                                        <TapGestureRecognizer Tapped="OnPermLevelTapped" CommandParameter="1"/>
+                                    </Grid.GestureRecognizers>
+                                </Grid>
+
+                                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="6">
+                                    <local:MorphIcon x:Name="icoWriteWs" Icon="Pencil" IconSize="12" IconColor="#D5C2C1" StrokeWidth="1.5" VerticalOptions="Center"/>
+                                    <Label Grid.Column="1" Text="仅修改工作区文件" TextColor="#D5C2C1" FontSize="11.5" VerticalOptions="Center"/>
+                                    <Label x:Name="chkWriteWs" Grid.Column="2" Text="○" TextColor="#B388FF" StyleId="theme" FontSize="12" VerticalOptions="Center"/>
+                                    <Grid.GestureRecognizers>
+                                        <TapGestureRecognizer Tapped="OnPermLevelTapped" CommandParameter="2"/>
+                                    </Grid.GestureRecognizers>
+                                </Grid>
+
+                            </VerticalStackLayout>
+
+                            <BoxView HeightRequest="1" Color="#3A3A4A"/>
+
+                            <VerticalStackLayout x:Name="permDiskGroup" Spacing="5">
+
+                                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="6">
+                                    <local:MorphIcon Icon="HardDrive" IconSize="12" IconColor="#D5C2C1" StrokeWidth="1.5" VerticalOptions="Center"/>
+                                    <Label Grid.Column="1" Text="读取全盘文件" TextColor="#D5C2C1" FontSize="11.5" VerticalOptions="Center"/>
+                                    <Label x:Name="chkReadDisk" Grid.Column="2" Text="○" TextColor="#B388FF" StyleId="theme" FontSize="12" VerticalOptions="Center"/>
+                                    <Grid.GestureRecognizers>
+                                        <TapGestureRecognizer Tapped="OnPermLevelTapped" CommandParameter="3"/>
+                                    </Grid.GestureRecognizers>
+                                </Grid>
+
+                                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="6">
+                                    <local:MorphIcon Icon="Pen" IconSize="12" IconColor="#D5C2C1" StrokeWidth="1.5" VerticalOptions="Center"/>
+                                    <Label Grid.Column="1" Text="修改全盘文件" TextColor="#D5C2C1" FontSize="11.5" VerticalOptions="Center"/>
+                                    <Label x:Name="chkWriteDisk" Grid.Column="2" Text="○" TextColor="#B388FF" StyleId="theme" FontSize="12" VerticalOptions="Center"/>
+                                    <Grid.GestureRecognizers>
+                                        <TapGestureRecognizer Tapped="OnPermLevelTapped" CommandParameter="4"/>
+                                    </Grid.GestureRecognizers>
+                                </Grid>
+
+                            </VerticalStackLayout>
+
+                            <BoxView HeightRequest="1" Color="#3A3A4A"/>
+
+                            <!-- 下面两个：独立复选 -->
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="6">
+                                <local:MorphIcon Icon="Globe" IconSize="12" IconColor="#D5C2C1" StrokeWidth="1.5" VerticalOptions="Center"/>
+                                <Label Grid.Column="1" Text="允许 AI 联网" TextColor="#D5C2C1" FontSize="11.5"
+                                       LineBreakMode="WordWrap" VerticalOptions="Center"/>
+                                <Label x:Name="chkBrowser" Grid.Column="2" Text="○" TextColor="#B388FF" StyleId="theme" FontSize="12" VerticalOptions="Center"/>
+                                <Grid.GestureRecognizers>
+                                    <TapGestureRecognizer Tapped="OnPermBrowserTapped"/>
+                                </Grid.GestureRecognizers>
+                            </Grid>
+
+                            <Grid x:Name="rowFullAccess" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="6">
+                                <local:MorphIcon Icon="Unlock" IconSize="12" IconColor="#D5C2C1" StrokeWidth="1.5" VerticalOptions="Center"/>
+                                <Label Grid.Column="1" Text="完全访问" TextColor="#F2B8B5" FontSize="11.5"
+                                       LineBreakMode="WordWrap" VerticalOptions="Center"/>
+                                <Label x:Name="chkFullAccess" Grid.Column="2" Text="○" TextColor="#B388FF" StyleId="theme" FontSize="12" VerticalOptions="Center"/>
+                                <Grid.GestureRecognizers>
+                                    <TapGestureRecognizer Tapped="OnPermFullAccessTapped"/>
+                                </Grid.GestureRecognizers>
+                            </Grid>
+
+                            <!-- 系统权限状态条：没授权时高亮提示 + 一键跳转 -->
+                            <Border x:Name="storageWarnBox" IsVisible="False"
+                                    BackgroundColor="#3A2626" StrokeThickness="1" Stroke="#7A3B3B"
+                                    StrokeShape="RoundRectangle 8" Padding="8,6">
+                                <VerticalStackLayout Spacing="5">
+                                    <Label x:Name="lblStorageWarn" Text="" FontSize="10.5" TextColor="#FFC9C4" LineBreakMode="WordWrap"/>
+                                    <Border x:Name="btnGrantStorage" BackgroundColor="#B3453F"
+                                            StrokeThickness="0" StrokeShape="RoundRectangle 6"
+                                            Padding="9,5" HorizontalOptions="Start">
+                                        <Label x:Name="lblGrantStorage" Text="去开启「所有文件访问」" FontSize="11" TextColor="White"/>
+                                        <Border.GestureRecognizers>
+                                            <TapGestureRecognizer Tapped="OnGrantStorageTapped"/>
+                                        </Border.GestureRecognizers>
+                                    </Border>
+                                </VerticalStackLayout>
+                            </Border>
+
+                            <!-- 导出：把沙盒里的文件搬到公共 Download -->
+                            <Grid x:Name="rowExport" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="6">
+                                <local:MorphIcon Icon="Download" IconSize="12" IconColor="#D5C2C1" StrokeWidth="1.5" VerticalOptions="Center"/>
+                                <Label Grid.Column="1" Text="导出工作区到 Download" TextColor="#B9D5C4" FontSize="11.5" VerticalOptions="Center"/>
+                                <Label x:Name="chkExport" Grid.Column="2" Text="›" TextColor="#B388FF" StyleId="theme" FontSize="12" VerticalOptions="Center"/>
+                                <Grid.GestureRecognizers>
+                                    <TapGestureRecognizer Tapped="OnExportWorkspaceTapped"/>
+                                </Grid.GestureRecognizers>
+                            </Grid>
+
+                            <Label x:Name="lblPermSummary" Text="" FontSize="10.5" TextColor="#9E8D8C" LineBreakMode="WordWrap"/>
+                        </VerticalStackLayout>
+
+                        <!-- ④ 图片面板（直接给入口） -->
+                        <VerticalStackLayout x:Name="paneImage" Spacing="6" IsVisible="False">
+                            <Label Text="发送图片给 Ta 看" FontSize="11" TextColor="#9E8D8C"/>
+                            <Border BackgroundColor="#B388FF" StyleId="theme-bg" StrokeThickness="0"
+                                    StrokeShape="RoundRectangle 8" Padding="12,8" HorizontalOptions="Start">
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer Tapped="OnPickImageFromMenu"/>
+                                </Border.GestureRecognizers>
+                                <Label Text="从相册选择" TextColor="White" FontSize="12"/>
+                            </Border>
+                        </VerticalStackLayout>
+                    </VerticalStackLayout>
+                </Border>
+            </Grid>
+        </Grid>
+
+        <!-- 输入框区域（胶囊样式：背景全透明，外面透出内容） -->
+        <Border x:Name="inputBar" VerticalOptions="End" Margin="12,0,12,14"
+                BackgroundColor="Transparent"
+                StrokeThickness="0"
+                StrokeShape="RoundRectangle 30"
+                Padding="10,8">
+            <Border.GestureRecognizers>
+                <TapGestureRecognizer Tapped="OnInputBarTapped"/>
+            </Border.GestureRecognizers>
+            <!-- 列：麦克风 | 输入 | 发送 | ≡ 三条杠
+                 其余功能（图片 / 权限 / 模型 / 推理）全部收进三条杠弹出的菜单里 -->
+            <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="8">
+                <Border Grid.Column="0"
+                        BackgroundColor="#3A3333"
+                        StrokeThickness="0"
+                        StrokeShape="RoundRectangle 20"
+                        WidthRequest="40"
+                        HeightRequest="40">
+                    <Border.GestureRecognizers>
+                        <!-- 麦克风按钮：短按 = 原来的语音输入；长按 500ms = 进语音通话页。
+                             注意：这里**不能**再用 TapGestureRecognizer —— Tap 在抬手时必触发，
+                                和长按会同时命中，变成"又识别又进通话页"。
+                                所以统一走 Pointer 按下/抬起，由代码自己判断是短按还是长按。 -->
+                        <PointerGestureRecognizer PointerPressed="OnVoicePointerPressed"
+                                                  PointerReleased="OnVoicePointerReleased"
+                                                  PointerExited="OnVoicePointerExited"/>
+                    </Border.GestureRecognizers>
+                    <local:MorphIcon Icon="Mic" IconSize="20" IconColor="White" StrokeWidth="2" VerticalOptions="Center"/>
+                </Border>
+                <Entry x:Name="txtInput"
+                       Grid.Column="1"
+                       Placeholder="输入消息，回车发送"
+                       PlaceholderColor="#9E8D8C"
+                       BackgroundColor="Transparent"
+                       TextColor="White"
+                       ReturnType="Send"
+                       Completed="OnInputCompleted"/>
+                <Button x:Name="btnSend"
+                        Grid.Column="2"
+                        Text="发送"
+                        StyleId="theme"
+                        BackgroundColor="#FBB5B2"
+                        CornerRadius="20"
+                        WidthRequest="64"
+                        VerticalOptions="End"/>
+                <!-- 三条杠：打开功能菜单（主气泡 + 旁边挂次气泡） -->
+                <Border x:Name="btnMenu" Grid.Column="3"
+                        BackgroundColor="#3A3333"
+                        StrokeThickness="0"
+                        StrokeShape="RoundRectangle 20"
+                        WidthRequest="40"
+                        HeightRequest="40">
+                    <Border.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnMenuTapped"/>
+                    </Border.GestureRecognizers>
+                    <Label Text="≡" TextColor="White" FontSize="18"
+                           HorizontalOptions="Center" VerticalOptions="Center"/>
+                </Border>
+            </Grid>
+        </Border>
+    </Grid>
+</ContentPage>
