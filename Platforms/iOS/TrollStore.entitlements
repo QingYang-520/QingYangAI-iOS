@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+		TrollStore（巨魔）侧载签名用的 entitlements。
+		get-task-allow = true 是关键：允许调试器附加，从而启用 JIT。
+		这样 App 内的 JitService 检测到 JIT 已就绪，不会弹 AltJIT 提示。
+	-->
+	<key>get-task-allow</key>
+	<true/>
+	<key>com.apple.security.application-groups</key>
+	<array>
+		<string>group.com.qingyang.ai.ios</string>
+	</array>
+</dict>
+</plist>
