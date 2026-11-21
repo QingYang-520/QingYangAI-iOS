@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="青阳AI.FeatureGuidePage"
+             Title="功能说明"
+             BackgroundColor="#181211">
+    <Grid Padding="20,16" RowDefinitions="Auto,Auto,*" RowSpacing="10">
+
+        <!-- 顶部：标题 + 副标题 -->
+        <VerticalStackLayout Grid.Row="0" Spacing="3">
+            <Label Text="功能说明" FontSize="22"
+                   HorizontalOptions="Center" TextColor="White"/>
+            <Label Text="设置里每个功能是做什么的" FontSize="12"
+                   HorizontalOptions="Center" TextColor="#9E8D8C"/>
+        </VerticalStackLayout>
+
+        <BoxView Grid.Row="1" HeightRequest="1" Color="#2F2928"/>
+
+        <!-- 正文：由 MarkdownRenderer 在代码里动态填充（见构造函数） -->
+        <ScrollView Grid.Row="2">
+            <VerticalStackLayout x:Name="guideBody" Spacing="9" Padding="0,4,0,16"/>
+        </ScrollView>
+    </Grid>
+</ContentPage>
