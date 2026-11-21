@@ -85,26 +85,25 @@ jobs:
       - name: 伪签名 + 打 IPA（TrollStore 可用）
         run: |
           set -euo pipefail
-          APP="$(find bin/Release/net10.0-ios/ios-arm64/publish -maxdepth 1 -name '*.app' -type d | head -1)"
+          PUBIPA="$(find bin/Release/net10.0-ios/ios-arm64/publish -maxdepth 1 -name '*.ipa' | head -1)"
+          echo "PUBIPA=$PUBIPA"
+          test -n "$PUBIPA"
+          # 解压现成 IPA
+          rm -rf Payload && mkdir -p Payload
+          unzip -q "$PUBIPA" -d Payload
+          APP="$(find Payload -maxdepth 1 -name '*.app' -type d | head -1)"
           echo "APP=$APP"
-
           # 给 Mach-O 主执行文件打上 get-task-allow（JIT 权限）等 entitlements
           BIN="$APP/QingYangAI"
           if [ -f "$BIN" ]; then
             ldid -SPlatforms/iOS/TrollStore.entitlements "$BIN"
           fi
-
-          # 也签一下 Frameworks / dylib（若有）
           find "$APP" -type f \( -name '*.dylib' -o -name '*.framework' \) -print0 2>/dev/null | while IFS= read -r -d '' f; do
             ldid -SPlatforms/iOS/TrollStore.entitlements "$f" 2>/dev/null || true
           done
-
-          # 打成 IPA（标准结构：Payload/xxx.app）
-          rm -rf Payload
-          mkdir -p Payload
-          cp -R "$APP" Payload/
+          # 重新打包
           zip -qry app.ipa Payload
-          IPA_NAME="${{ github.event.inputs.ipa_name || '青阳AI-1.10.24.ipa' }}"
+          IPA_NAME="${{ github.event.inputs.ipa_name || 'QingYangAI-1.10.24.ipa' }}"
           mv app.ipa "$IPA_NAME"
           echo "IPA_PATH=$IPA_NAME" >> $GITHUB_ENV
           ls -lh "$IPA_NAME"
