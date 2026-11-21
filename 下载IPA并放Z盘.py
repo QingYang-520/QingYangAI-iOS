@@ -38,7 +38,7 @@ import json
 import zipfile
 import tempfile
 
-REPO = "QingYang-520/QingYangAI-Agent"
+REPO = "QingYang-520/QingYangAI-iOS"
 WORKFLOW = "ios-build.yml"
 Z_ROOT = r"Z:\ "
 Z_ROOT = Z_ROOT.strip()          # "Z:\"
@@ -89,7 +89,7 @@ def api(tok, method, path, raw=False):
 def list_runs(tok, limit=5):
     d = api(tok, "GET", "/actions/runs?per_page=%d" % limit)
     return [r for r in d.get("workflow_runs", [])
-            if r.get("name", "").startswith("打包 iOS")]
+            if "ios" in r.get("name", "").lower() or "打包" in r.get("name", "")]
 
 
 def list_artifacts(tok, run_id):
@@ -98,22 +98,18 @@ def list_artifacts(tok, run_id):
 
 
 def download_artifact(tok, artifact, dest_dir):
-    # 拿下载链接（返回 302 → objects.githubusercontent.com）
+    # 用 PowerShell Invoke-WebRequest 下载（urllib 跟随 302 到 objects 域名会丢认证头导致 401）
     url = artifact["archive_download_url"]
-    req = urllib.request.Request(url, headers={
-        "Authorization": "Bearer " + tok,
-        "User-Agent": "qingyang-ios-downloader",
-    })
-    try:
-        with urllib.request.urlopen(req, timeout=300) as r:
-            data = r.read()
-    except urllib.error.HTTPError as e:
-        raise RuntimeError("下载 artifact 失败 HTTP %d" % e.code)
-    except Exception as e:
-        raise RuntimeError("下载 artifact 失败（可能 objects.githubusercontent.com 超时）：%s" % e)
     tmpzip = os.path.join(dest_dir, "artifact.zip")
-    with open(tmpzip, "wb") as f:
-        f.write(data)
+    ps = (
+        '$h = @{ Authorization = "Bearer %s"; "User-Agent" = "qy" }; '
+        'Invoke-WebRequest -Uri "%s" -Headers $h -OutFile "%s" '
+        '-TimeoutSec 300 -MaximumRedirection 10'
+    ) % (tok, url, tmpzip.replace("\\", "\\\\"))
+    r = subprocess.run(["powershell", "-NoProfile", "-Command", ps],
+                       capture_output=True, text=True)
+    if r.returncode != 0 or not os.path.exists(tmpzip) or os.path.getsize(tmpzip) == 0:
+        raise RuntimeError("下载 artifact 失败：%s" % (r.stderr[:300] or "空文件"))
     with zipfile.ZipFile(tmpzip) as z:
         names = [n for n in z.namelist() if n.lower().endswith(".ipa")]
         if not names:
